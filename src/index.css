@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-base: #eae8d9;
+    --bg-secondary: #b1c0a1;
+    --color-primary: #78988b;
+    --color-interactive: #749fa0;
+    --color-light-accent: #c0dfe1;
+    --color-ink: #1f332c;
+    --color-ink-muted: #53685e;
+  }
+
+  body {
+    background-color: #eae8d9;
+    color: #1f332c;
+    font-family: 'Hind Siliguri', 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  /* Design System Palette Utility Classes */
+  .bg-palette-base { background-color: #eae8d9; }
+  .bg-palette-secondary { background-color: #b1c0a1; }
+  .bg-palette-primary { background-color: #78988b; }
+  .bg-palette-interactive { background-color: #749fa0; }
+  .bg-palette-light { background-color: #c0dfe1; }
+
+  .text-palette-base { color: #eae8d9; }
+  .text-palette-secondary { color: #b1c0a1; }
+  .text-palette-primary { color: #78988b; }
+  .text-palette-interactive { color: #749fa0; }
+  .text-palette-ink { color: #1f332c; }
+  .text-palette-muted { color: #53685e; }
+
+  .border-palette-light { border-color: #c0dfe1; }
+  .border-palette-interactive { border-color: #749fa0; }
+  .border-palette-primary { border-color: #78988b; }
+  .border-palette-secondary { border-color: #b1c0a1; }
+
+  /* A4 Screen Display Container */
+  .a4-preview-page {
+    width: 210mm;
+    min-height: 296mm;
+    margin-left: auto;
+    margin-right: auto;
+    background: #ffffff;
+    box-shadow: 0 10px 30px -5px rgba(31, 51, 44, 0.12), 0 0 0 1px rgba(192, 223, 225, 0.5);
+  }
+
+  /* Custom Clean Scrollbar for Dashboard & Sidebar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #b1c0a1;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #78988b;
+  }
+
+  @media print {
+    @page {
+      size: A4 portrait;
+      margin: 8mm 8mm 8mm 8mm;
+    }
+    html, body {
+      background: #ffffff !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .a4-preview-page {
+      width: 100% !important;
+      min-height: auto !important;
+      margin: 0 !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+    }
+    .no-print {
+      display: none !important;
+    }
+    .print-only {
+      display: block !important;
+    }
+    .page-break {
+      page-break-after: always;
+      break-after: page;
+    }
+    .avoid-break {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .booklet-print-sheet {
+      page-break-after: always !important;
+      break-after: page !important;
+      box-shadow: none !important;
+      border: none !important;
+      margin: 0 !important;
+      width: 100% !important;
+    }
+    .booklet-print-sheet:last-of-type {
+      page-break-after: auto !important;
+      break-after: auto !important;
+    }
+  }
+}
+
+/* Notice Marquee Animation (Right to Left Scrolling) */
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.notice-marquee-track {
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  display: flex;
+}
+
+.notice-marquee-content {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  will-change: transform;
+  animation: marquee-scroll 35s linear infinite;
+}
+
+.notice-marquee-content:hover {
+  animation-play-state: paused;
+}
