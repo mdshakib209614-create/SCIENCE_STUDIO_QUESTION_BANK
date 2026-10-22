@@ -912,156 +912,158 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
         </div>
       )}
 
-      {/* Top Main Action Bar - Hidden in Question Archive (saved-papers) mode */}
+      {/* Top Main Command Bar - Responsive, Beautiful & Stays strictly within screen bounds */}
       {viewMode !== 'saved-papers' && (
         <>
-          <div className="bg-[#ffffff] rounded-2xl shadow-xs border border-[#c0dfe1] p-4 md:p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 print:hidden text-[#1f332c]">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-[#b1c0a1]/30 border border-[#b1c0a1] text-[#78988b] flex items-center justify-center font-bold">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl md:text-2xl font-bold text-[#1f332c]">
-                  প্রশ্নপত্র তৈরি ও প্রিন্ট স্টুডিও
-                </h1>
-                {paperTitle && (
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#b1c0a1]/30 text-[#1f332c] border border-[#b1c0a1] truncate max-w-xs">
-                    {paperTitle}
-                  </span>
-                )}
+          <div className="bg-white rounded-3xl shadow-xs border border-[#c0dfe1] p-4 sm:p-5 space-y-4 print:hidden text-[#1f332c]">
+          {/* Row 1: Studio Title & Primary Quick Action Buttons */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-[#c0dfe1]/60">
+            <div className="flex items-start sm:items-center gap-3 min-w-0">
+              <div className="w-12 h-12 rounded-2xl bg-[#b1c0a1]/30 border border-[#b1c0a1] text-[#78988b] flex items-center justify-center font-bold shrink-0 shadow-2xs">
+                <FileText className="w-6 h-6" />
               </div>
-              <p className="text-xs md:text-sm text-[#53685e]">
-                ক, খ, গ বিভাগীয় ফরম্যাট • ১০০ মার্কের ৪-সেকশন ল্যান্ডস্কেপ ভাঁজ বুকলেট ও স্ট্যান্ডার্ড পোর্ট্রেট প্রিন্ট
-              </p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-lg sm:text-xl md:text-2xl font-black text-[#1f332c] tracking-tight">
+                    প্রশ্নপত্র তৈরি ও প্রিন্ট স্টুডিও
+                  </h1>
+                  {paperTitle && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#b1c0a1]/40 text-[#1f332c] border border-[#b1c0a1] truncate max-w-xs shadow-2xs">
+                      {paperTitle}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs sm:text-sm text-[#53685e] mt-0.5">
+                  ক, খ, গ বিভাগীয় ফরম্যাট • ১০০ মার্কের ৪-সেকশন ল্যান্ডস্কেপ ভাঁজ বুকলেট ও স্ট্যান্ডার্ড পোর্ট্রেট প্রিন্ট
+                </p>
+              </div>
+            </div>
+
+            {/* Top Quick Actions: New Blank, Save, and Print */}
+            <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
+              <button
+                id="btn-create-new-blank-paper"
+                onClick={handleCreateNewBlankPaper}
+                className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-[#1f332c] font-bold text-xs sm:text-sm transition cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-2xs"
+                title="সব প্রশ্ন খালি করে সম্পূর্ণ নতুন ব্ল্যাঙ্ক প্রশ্নপত্র তৈরি করুন"
+              >
+                <PlusCircle className="w-4 h-4 text-[#78988b]" />
+                <span>নতুন প্রশ্নপত্র তৈরি</span>
+              </button>
+
+              <button
+                id="btn-save-paper-top"
+                onClick={handleOpenSaveModal}
+                className="px-4 py-2 rounded-xl bg-[#749fa0] hover:bg-[#5f8788] text-white font-bold text-xs sm:text-sm shadow-md flex items-center gap-1.5 cursor-pointer transition active:scale-95"
+                title="বর্তমান প্রশ্নপত্রটি সেভ করুন"
+              >
+                <Save className="w-4 h-4 text-white" />
+                <span>সেভ করুন</span>
+              </button>
+
+              <button
+                onClick={handlePrint}
+                className="px-4 py-2 rounded-xl bg-[#10b981] hover:bg-[#059669] text-white font-bold text-xs sm:text-sm shadow-md flex items-center gap-1.5 transition cursor-pointer active:scale-95"
+              >
+                <Printer className="w-4 h-4 text-white" />
+                <span>প্রিন্ট করুন</span>
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* Action Buttons & Tabs */}
-        <div className="flex items-center gap-2.5 w-full lg:w-auto shrink-0 flex-wrap justify-between lg:justify-end">
-          {/* New Blank Paper Button */}
-          <button
-            id="btn-create-new-blank-paper"
-            onClick={handleCreateNewBlankPaper}
-            className="px-3.5 py-1.5 rounded-xl bg-[#eae8d9]/70 hover:bg-[#b1c0a1]/30 border border-[#c0dfe1] text-[#1f332c] font-semibold text-xs md:text-sm transition cursor-pointer flex items-center gap-1.5"
-            title="সব প্রশ্ন খালি করে সম্পূর্ণ নতুন ব্ল্যাঙ্ক প্রশ্নপত্র তৈরি করুন"
-          >
-            <PlusCircle className="w-3.5 h-3.5 text-[#78988b]" />
-            <span>নতুন প্রশ্নপত্র তৈরি</span>
-          </button>
-
-          {/* View Mode Switcher Tabs */}
-          <div className="bg-[#eae8d9]/60 p-1 rounded-xl flex items-center gap-1 border border-[#c0dfe1] flex-wrap">
+          {/* Row 2: Module Badges Navigation (বডিতে আকর্ষণীয় ও রেসপনসিভভাবে বিন্যস্ত) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-1">
+            {/* 1. প্রশ্নপত্র বিল্ডার */}
             <button
               onClick={() => setViewMode('builder')}
-              className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+              className={`p-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 border text-center ${
                 viewMode === 'builder'
-                  ? 'bg-[#ffffff] text-[#78988b] shadow-xs font-bold'
-                  : 'text-[#53685e] hover:text-[#1f332c]'
+                  ? 'bg-[#78988b] text-white shadow-md border-[#78988b] ring-2 ring-[#78988b]/30'
+                  : 'bg-[#eae8d9]/40 text-[#53685e] hover:bg-[#eae8d9] hover:text-[#1f332c] border-[#c0dfe1]'
               }`}
             >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>প্রশ্নপত্র বিল্ডার</span>
+              <Sliders className="w-4 h-4 shrink-0" />
+              <span className="truncate">প্রশ্নপত্র বিল্ডার</span>
             </button>
 
+            {/* 2. ৪-পৃষ্ঠা বুকলেট */}
             <button
               onClick={() => {
                 setViewMode('preview');
                 setPaperLayoutMode('landscape_booklet');
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+              className={`p-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 border text-center ${
                 viewMode === 'preview' && paperLayoutMode === 'landscape_booklet'
-                  ? 'bg-[#78988b] text-white shadow-xs font-bold'
-                  : 'text-[#53685e] hover:text-[#1f332c]'
+                  ? 'bg-gradient-to-r from-emerald-700 to-teal-800 text-white shadow-md border-emerald-600 ring-2 ring-emerald-400/40'
+                  : 'bg-[#eae8d9]/40 text-[#53685e] hover:bg-[#eae8d9] hover:text-[#1f332c] border-[#c0dfe1]'
               }`}
               title="১০০ নম্বরের মডেল টেস্ট: ২টি ল্যান্ডস্কেপ পেজ (এপিডোবিট প্রিন্ট ও মাঝখানে ভাঁজ)"
             >
-              <FoldHorizontal className="w-3.5 h-3.5" />
-              <span>৪-পৃষ্ঠা বুকলেট</span>
+              <FoldHorizontal className="w-4 h-4 shrink-0" />
+              <span className="truncate">৪-পৃষ্ঠা বুকলেট</span>
             </button>
 
+            {/* 3. পোর্ট্রেট A4 */}
             <button
               onClick={() => {
                 setViewMode('preview');
                 setPaperLayoutMode('standard_portrait');
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+              className={`p-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 border text-center ${
                 viewMode === 'preview' && paperLayoutMode === 'standard_portrait'
-                  ? 'bg-[#ffffff] text-[#78988b] shadow-xs font-bold'
-                  : 'text-[#53685e] hover:text-[#1f332c]'
+                  ? 'bg-[#78988b] text-white shadow-md border-[#78988b] ring-2 ring-[#78988b]/30'
+                  : 'bg-[#eae8d9]/40 text-[#53685e] hover:bg-[#eae8d9] hover:text-[#1f332c] border-[#c0dfe1]'
               }`}
             >
-              <Eye className="w-3.5 h-3.5" />
-              <span>পোর্ট্রেট A4</span>
+              <Eye className="w-4 h-4 shrink-0" />
+              <span className="truncate">পোর্ট্রেট A4</span>
             </button>
 
-            {/* OMR Sheet Generator (eProshnobank & ProshnoLab signature feature) */}
+            {/* 4. ওএমআর শিট (OMR) */}
             <button
               onClick={() => setViewMode('omr-sheet')}
-              className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+              className={`p-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 border text-center ${
                 viewMode === 'omr-sheet'
-                  ? 'bg-emerald-700 text-white shadow-xs font-bold'
-                  : 'text-[#53685e] hover:text-[#1f332c]'
+                  ? 'bg-emerald-700 text-white shadow-md border-emerald-600 ring-2 ring-emerald-400/40'
+                  : 'bg-[#eae8d9]/40 text-[#53685e] hover:bg-[#eae8d9] hover:text-[#1f332c] border-[#c0dfe1]'
               }`}
               title="২০, ২৫, ৩০, ৫০ বা ১০০ নম্বরের ওএমআর শিট জেনারেটর ও ১-ক্লিক প্রিন্ট"
             >
-              <Layers className="w-3.5 h-3.5" />
-              <span>ওএমআর শিট (OMR)</span>
+              <Layers className="w-4 h-4 shrink-0" />
+              <span className="truncate">ওএমআর শিট (OMR)</span>
             </button>
 
-            {/* Teacher's Solution & Answer Key Guide (eProshnobank & ProshnoLab signature feature) */}
+            {/* 5. উত্তরমালা ও সমাধান */}
             <button
               onClick={() => setViewMode('answer-key')}
-              className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+              className={`p-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 border text-center ${
                 viewMode === 'answer-key'
-                  ? 'bg-teal-700 text-white shadow-xs font-bold'
-                  : 'text-[#53685e] hover:text-[#1f332c]'
+                  ? 'bg-teal-700 text-white shadow-md border-teal-600 ring-2 ring-teal-400/40'
+                  : 'bg-[#eae8d9]/40 text-[#53685e] hover:bg-[#eae8d9] hover:text-[#1f332c] border-[#c0dfe1]'
               }`}
               title="সেটভিত্তিক (ক, খ, গ, ঘ) বহুনির্বাচনী উত্তর সারণি ও শিক্ষক সমাধান গাইড"
             >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>উত্তরমালা ও সমাধান</span>
+              <BookOpen className="w-4 h-4 shrink-0" />
+              <span className="truncate">উত্তরমালা ও সমাধান</span>
             </button>
 
+            {/* 6. প্রশ্নপত্র আর্কাইভ */}
             <button
               onClick={() => setViewMode('saved-papers')}
-              className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+              className={`p-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2 border text-center ${
                 (viewMode as string) === 'saved-papers'
-                  ? 'bg-[#ffffff] text-[#78988b] shadow-xs font-bold'
-                  : 'text-[#53685e] hover:text-[#1f332c]'
+                  ? 'bg-[#78988b] text-white shadow-md border-[#78988b] ring-2 ring-[#78988b]/30'
+                  : 'bg-[#eae8d9]/40 text-[#53685e] hover:bg-[#eae8d9] hover:text-[#1f332c] border-[#c0dfe1]'
               }`}
             >
-              <Bookmark className="w-3.5 h-3.5" />
-              <span>প্রশ্নপত্র আর্কাইভ</span>
-              <span className="px-1.5 py-0.2 bg-[#b1c0a1]/40 text-[#1f332c] rounded-full text-[10px] font-bold">
+              <Bookmark className="w-4 h-4 shrink-0" />
+              <span className="truncate">প্রশ্নপত্র আর্কাইভ</span>
+              <span className="px-1.5 py-0.5 bg-[#b1c0a1]/40 text-[#1f332c] rounded-full text-[10px] font-black shrink-0">
                 {toBengaliNumber(savedExamPapers.length)}
               </span>
             </button>
           </div>
-
-          {/* Save Button */}
-          <button
-            id="btn-save-paper-top"
-            onClick={handleOpenSaveModal}
-            className="px-3.5 py-1.5 rounded-xl bg-[#749fa0] hover:bg-[#5f8788] text-white font-bold text-xs md:text-sm shadow-xs flex items-center gap-1.5 cursor-pointer transition"
-            title="বর্তমান প্রশ্নপত্রটি সেভ করুন"
-          >
-            <Save className="w-3.5 h-3.5 text-[#eae8d9]" />
-            <span>সেভ করুন</span>
-          </button>
-
-          {/* Print Button */}
-          <button
-            onClick={handlePrint}
-            className="px-4 py-1.5 rounded-xl bg-[#78988b] hover:bg-[#658276] text-white font-bold text-xs md:text-sm shadow-xs flex items-center gap-1.5 transition cursor-pointer"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>প্রিন্ট করুন</span>
-          </button>
         </div>
-      </div>
 
       {/* 1-Click Ready Model Booklet Presets (SSC Math 100 Marks, SSC English 2nd Paper, 4-Page English) */}
       <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-200/90 rounded-2xl p-4 sm:p-5 shadow-xs no-print">

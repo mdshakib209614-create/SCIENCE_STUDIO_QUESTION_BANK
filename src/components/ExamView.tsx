@@ -362,43 +362,139 @@ export const ExamView: React.FC<ExamViewProps> = ({ initialSubTab = 'routine' })
 
   return (
     <div className="space-y-6 text-[#1f332c]">
-      {/* Sub Tabs Navigation */}
-      <div className="flex flex-col sm:flex-row items-center gap-2 bg-[#ffffff] p-2 rounded-2xl border border-[#c0dfe1] shadow-xs no-print">
-        <button
-          onClick={() => setActiveSubTab('routine')}
-          className={`flex-1 w-full sm:w-auto flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition cursor-pointer ${
-            activeSubTab === 'routine'
-              ? 'bg-[#78988b] text-white shadow-xs'
-              : 'text-[#53685e] hover:bg-[#b1c0a1]/20'
-          }`}
-        >
-          <CalendarCheck className="w-4 h-4" />
-          <span>পরীক্ষার রুটিন তৈরি (Routine)</span>
-        </button>
+      {/* Attractive Top Module Badges (আকর্ষণীয় বেজ নেভিগেশন - রুটিন, এডমিট কার্ড ও সিট প্ল্যান) */}
+      <div className="bg-gradient-to-r from-[#071711] via-[#0f2e22] to-[#071711] p-3 sm:p-4 rounded-3xl border-2 border-[#d4af37]/60 shadow-[0_8px_30px_rgba(0,0,0,0.35)] no-print">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 px-1 pb-2.5 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]"></span>
+            <span className="text-xs font-black uppercase tracking-wider text-amber-200">
+              পরীক্ষা ও মূল্যায়ন কন্ট্রোল হাব (৩টি সমন্বিত মডিউল)
+            </span>
+          </div>
+          <span className="text-[11px] text-emerald-200/80 font-medium">
+            যেকোনো মডিউলে সুইচ করতে নিচের আকর্ষণীয় ব্যাজে ক্লিক করুন
+          </span>
+        </div>
 
-        <button
-          onClick={() => setActiveSubTab('admit')}
-          className={`flex-1 w-full sm:w-auto flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition cursor-pointer ${
-            activeSubTab === 'admit'
-              ? 'bg-[#78988b] text-white shadow-xs'
-              : 'text-[#53685e] hover:bg-[#b1c0a1]/20'
-          }`}
-        >
-          <IdCard className="w-4 h-4" />
-          <span>প্রবেশপত্র তৈরি ও প্রিন্ট (Admit Card)</span>
-        </button>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3.5">
+          {/* Badge 1: Exam Routine */}
+          <button
+            onClick={() => setActiveSubTab('routine')}
+            className={`group relative flex items-center justify-between p-3 sm:p-4 rounded-2xl transition-all duration-200 cursor-pointer text-left border ${
+              activeSubTab === 'routine'
+                ? 'bg-gradient-to-br from-[#10b981] via-[#059669] to-[#047857] text-white border-emerald-300 shadow-[0_6px_24px_rgba(16,185,129,0.5)] ring-2 ring-emerald-300 scale-[1.02]'
+                : 'bg-white/10 hover:bg-white/18 text-[#eae8d9] border-white/10 hover:border-emerald-300/40 backdrop-blur-xs'
+            }`}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-md ${
+                activeSubTab === 'routine' 
+                  ? 'bg-white/20 text-white border border-white/30' 
+                  : 'bg-white/10 text-emerald-300 border border-emerald-400/20'
+              }`}>
+                <CalendarCheck className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs sm:text-sm font-black leading-tight flex items-center gap-1.5 truncate">
+                  <span>পরীক্ষার রুটিন</span>
+                </div>
+                <span className={`text-[10px] block mt-0.5 truncate font-medium ${
+                  activeSubTab === 'routine' ? 'text-emerald-100' : 'text-emerald-300/70'
+                }`}>
+                  Exam Routine Maker
+                </span>
+              </div>
+            </div>
+            <div className="shrink-0 pl-2">
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide inline-flex items-center gap-1 ${
+                activeSubTab === 'routine'
+                  ? 'bg-white text-emerald-950 shadow-sm'
+                  : 'bg-emerald-400/20 text-emerald-200 border border-emerald-400/30'
+              }`}>
+                <Sparkles className="w-3 h-3 text-amber-400" />
+                <span>{toBengaliNumber(routines.length)} বিষয়</span>
+              </span>
+            </div>
+          </button>
 
-        <button
-          onClick={() => setActiveSubTab('seat')}
-          className={`flex-1 w-full sm:w-auto flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition cursor-pointer ${
-            activeSubTab === 'seat'
-              ? 'bg-[#78988b] text-white shadow-xs'
-              : 'text-[#53685e] hover:bg-[#b1c0a1]/20'
-          }`}
-        >
-          <Grid className="w-4 h-4" />
-          <span>পরীক্ষার সিট প্ল্যান (Seat Plan)</span>
-        </button>
+          {/* Badge 2: Admit Card */}
+          <button
+            onClick={() => setActiveSubTab('admit')}
+            className={`group relative flex items-center justify-between p-3 sm:p-4 rounded-2xl transition-all duration-200 cursor-pointer text-left border ${
+              activeSubTab === 'admit'
+                ? 'bg-gradient-to-br from-[#10b981] via-[#059669] to-[#047857] text-white border-emerald-300 shadow-[0_6px_24px_rgba(16,185,129,0.5)] ring-2 ring-emerald-300 scale-[1.02]'
+                : 'bg-white/10 hover:bg-white/18 text-[#eae8d9] border-white/10 hover:border-emerald-300/40 backdrop-blur-xs'
+            }`}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-md ${
+                activeSubTab === 'admit' 
+                  ? 'bg-white/20 text-white border border-white/30' 
+                  : 'bg-white/10 text-amber-300 border border-amber-400/20'
+              }`}>
+                <IdCard className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs sm:text-sm font-black leading-tight flex items-center gap-1.5 truncate">
+                  <span>প্রবেশপত্র প্রিন্ট</span>
+                </div>
+                <span className={`text-[10px] block mt-0.5 truncate font-medium ${
+                  activeSubTab === 'admit' ? 'text-emerald-100' : 'text-emerald-300/70'
+                }`}>
+                  Admit Card Studio
+                </span>
+              </div>
+            </div>
+            <div className="shrink-0 pl-2">
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide inline-flex items-center gap-1 ${
+                activeSubTab === 'admit'
+                  ? 'bg-white text-emerald-950 shadow-sm'
+                  : 'bg-amber-400/20 text-amber-200 border border-amber-400/30'
+              }`}>
+                <span>ল্যান্ডস্কেপ</span>
+              </span>
+            </div>
+          </button>
+
+          {/* Badge 3: Seat Plan */}
+          <button
+            onClick={() => setActiveSubTab('seat')}
+            className={`group relative flex items-center justify-between p-3 sm:p-4 rounded-2xl transition-all duration-200 cursor-pointer text-left border ${
+              activeSubTab === 'seat'
+                ? 'bg-gradient-to-br from-[#10b981] via-[#059669] to-[#047857] text-white border-emerald-300 shadow-[0_6px_24px_rgba(16,185,129,0.5)] ring-2 ring-emerald-300 scale-[1.02]'
+                : 'bg-white/10 hover:bg-white/18 text-[#eae8d9] border-white/10 hover:border-emerald-300/40 backdrop-blur-xs'
+            }`}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-md ${
+                activeSubTab === 'seat' 
+                  ? 'bg-white/20 text-white border border-white/30' 
+                  : 'bg-white/10 text-teal-300 border border-teal-400/20'
+              }`}>
+                <Grid className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs sm:text-sm font-black leading-tight flex items-center gap-1.5 truncate">
+                  <span>পরীক্ষার সিট প্ল্যান</span>
+                </div>
+                <span className={`text-[10px] block mt-0.5 truncate font-medium ${
+                  activeSubTab === 'seat' ? 'text-emerald-100' : 'text-emerald-300/70'
+                }`}>
+                  Exam Seat Plan
+                </span>
+              </div>
+            </div>
+            <div className="shrink-0 pl-2">
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide inline-flex items-center gap-1 ${
+                activeSubTab === 'seat'
+                  ? 'bg-white text-emerald-950 shadow-sm'
+                  : 'bg-teal-400/20 text-teal-200 border border-teal-400/30'
+              }`}>
+                <span>কক্ষ ভিত্তিক</span>
+              </span>
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* SUB-TAB 1: Exam Routine */}

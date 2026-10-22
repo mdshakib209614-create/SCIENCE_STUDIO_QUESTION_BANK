@@ -3,7 +3,8 @@ import {
   Menu, 
   LogOut, 
   Sparkles,
-  UserCheck
+  UserCheck,
+  Atom
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -14,7 +15,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ 
   onToggleMobileMenu 
 }) => {
-  const { logout, currentUser, setActiveTab, userProfile } = useApp();
+  const { logout, currentUser, setActiveTab, userProfile, institution } = useApp();
 
   // Founder / Director Sakib Ahmed
   const adminDisplayName = userProfile?.name || 'Sakib Ahmed';
@@ -22,10 +23,10 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="bg-gradient-to-r from-[#05110c] via-[#0d261b] to-[#05110c] border-b-[3px] border-[#d4af37] shadow-[0_12px_36px_rgba(0,0,0,0.65),0_0_20px_rgba(212,175,55,0.22)] sticky top-0 z-30 shrink-0 print:hidden no-print select-none transition-all">
       {/* Thick / Tall Header Container */}
-      <div className="px-4 sm:px-6 md:px-8 py-4 sm:py-5 md:py-6 min-h-[96px] sm:min-h-[110px] md:min-h-[120px] lg:min-h-[128px] flex items-center justify-between gap-4 md:gap-6">
+      <div className="px-4 sm:px-6 md:px-8 py-3 sm:py-4 md:py-5 min-h-[96px] sm:min-h-[110px] md:min-h-[120px] lg:min-h-[128px] flex items-center justify-between gap-4 md:gap-6">
         
-        {/* Left Section: Mobile Menu Button & Prominent Large "SCIENCE STUDIO BY SAKIB" */}
-        <div className="flex items-center gap-3 sm:gap-4.5 min-w-0">
+        {/* Left Section: Mobile Menu Button & Prominent Large "SCIENCE STUDIO" + Official Logo */}
+        <div className="flex items-center gap-3 sm:gap-4 md:gap-5 min-w-0">
           <button
             onClick={onToggleMobileMenu}
             className="lg:hidden p-2.5 sm:p-3 rounded-2xl bg-white/10 hover:bg-white/20 text-[#eae8d9] border border-white/20 transition cursor-pointer shrink-0 shadow-md"
@@ -34,10 +35,23 @@ export const Header: React.FC<HeaderProps> = ({
             <Menu className="w-5 h-5 sm:w-6 sm:h-6 text-[#f7e4a1]" />
           </button>
 
+          {/* Official Logo at Full Header Level */}
+          <div className="w-13 h-13 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-2xl bg-white/10 p-1 sm:p-1.5 flex items-center justify-center shrink-0 border-2 border-[#d4af37] shadow-[0_0_20px_rgba(212,175,55,0.4)] overflow-hidden">
+            {institution?.logoUrl ? (
+              <img 
+                src={institution.logoUrl} 
+                alt="Institution Logo" 
+                className="w-full h-full object-contain filter drop-shadow-md" 
+              />
+            ) : (
+              <Atom className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-[#f7e4a1]" />
+            )}
+          </div>
+
           <div className="flex flex-col justify-center min-w-0">
             {/* Main Title: Stylish modern English SCIENCE STUDIO as requested */}
             <div className="flex items-center gap-2.5">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-[58px] 2xl:text-[64px] font-black tracking-wider uppercase font-sans leading-none bg-gradient-to-r from-white via-amber-200 to-emerald-300 bg-clip-text text-transparent drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)] select-none">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-[54px] 2xl:text-[60px] font-black tracking-wider uppercase font-sans leading-none bg-gradient-to-r from-white via-amber-200 to-emerald-300 bg-clip-text text-transparent drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)] select-none">
                 SCIENCE STUDIO
               </h1>
               <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-[10px] md:text-xs font-extrabold uppercase tracking-widest bg-amber-400/20 border border-amber-300/40 text-amber-200 shadow-xs">

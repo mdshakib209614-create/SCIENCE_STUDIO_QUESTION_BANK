@@ -27,12 +27,14 @@ import {
   FileSignature,
   Stamp,
   RotateCcw,
-  Bell
+  Bell,
+  Database
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { InstitutionProfile } from '../types';
 import { defaultScienceStudioLogoSvg } from '../assets/defaultWatermarkLogo';
 import { NoticesView } from './NoticesView';
+import { SupabaseSyncPanel } from './SupabaseSyncPanel';
 
 export const SettingsView: React.FC = () => {
   const { 
@@ -64,8 +66,8 @@ export const SettingsView: React.FC = () => {
     results 
   } = useApp();
 
-  type SettingsTab = 'general' | 'contact' | 'codes' | 'signatures' | 'watermark' | 'profile' | 'notices' | 'security' | 'backup';
-  const [activeSubTab, setActiveSubTab] = useState<SettingsTab>('general');
+  type SettingsTab = 'supabase' | 'general' | 'contact' | 'codes' | 'signatures' | 'watermark' | 'profile' | 'notices' | 'security' | 'backup';
+  const [activeSubTab, setActiveSubTab] = useState<SettingsTab>('supabase');
   const [formData, setFormData] = useState<InstitutionProfile>({ ...institution });
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -284,6 +286,19 @@ export const SettingsView: React.FC = () => {
       {/* Navigation Subtabs */}
       <div className="flex flex-wrap gap-2 border-b border-[#c0dfe1] pb-2">
         <button
+          onClick={() => setActiveSubTab('supabase')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition cursor-pointer ${
+            activeSubTab === 'supabase'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md ring-2 ring-emerald-300'
+              : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300'
+          }`}
+        >
+          <Database className="w-4 h-4 text-emerald-500" />
+          <span>⚡ সুপাবেজ ক্লাউড সিঙ্ক</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        </button>
+
+        <button
           onClick={() => setActiveSubTab('general')}
           className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
             activeSubTab === 'general'
@@ -393,9 +408,14 @@ export const SettingsView: React.FC = () => {
       </div>
 
       {/* Main Content Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Form Content */}
-        <div className="lg:col-span-2 space-y-6">
+      {activeSubTab === 'supabase' ? (
+        <div className="w-full">
+          <SupabaseSyncPanel />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left 2 Cols: Form Content */}
+          <div className="lg:col-span-2 space-y-6">
 
           {/* TAB 1: General Info & Direct Logo Upload */}
           {activeSubTab === 'general' && (
@@ -1538,6 +1558,7 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 };
