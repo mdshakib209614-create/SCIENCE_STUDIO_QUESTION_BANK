@@ -61,47 +61,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
         } no-print`}
       >
         <div className="flex flex-col flex-1 overflow-y-auto scrollbar-thin">
-          {/* Sidebar Top: Enlarged Logo & Prominent SCIENCE STUDIO aligned to Header Level */}
-          <div className="px-4 py-3 sm:py-4 min-h-[96px] sm:min-h-[110px] md:min-h-[120px] lg:min-h-[128px] flex items-center justify-between border-b-[3px] border-[#d4af37] bg-gradient-to-r from-[#05110c] via-[#0d261b] to-[#05110c] shadow-md">
-            <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
-              {/* Enlarged Institution / Science Studio Logo */}
-              <div className="w-13 h-13 sm:w-15 sm:h-15 md:w-16 md:h-16 rounded-2xl bg-white/10 p-1.5 flex items-center justify-center shrink-0 border-2 border-[#d4af37] shadow-[0_0_16px_rgba(212,175,55,0.35)] overflow-hidden">
-                {institution.logoUrl ? (
-                  <img 
-                    src={institution.logoUrl} 
-                    alt="Logo" 
-                    className="w-full h-full object-contain filter drop-shadow-sm" 
-                  />
-                ) : (
-                  <Atom className="w-8 h-8 sm:w-10 sm:h-10 text-[#f7e4a1]" />
-                )}
-              </div>
-              <div className="min-w-0 flex flex-col justify-center">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <h2 className="text-base sm:text-lg md:text-xl font-black font-sans text-white tracking-wider uppercase leading-tight bg-gradient-to-r from-white via-amber-200 to-emerald-300 bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] select-none">
-                    SCIENCE STUDIO
-                  </h2>
-                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-amber-400/20 border border-amber-300/40 text-amber-200 shrink-0">
-                    PRO
-                  </span>
-                </div>
-                <span className="text-[10px] sm:text-[11px] text-emerald-300/80 font-semibold tracking-wide truncate block mt-0.5">
-                  {institution.nameBn || 'একাডেমিক ও এক্সাম সিস্টেম'}
-                </span>
-              </div>
+          {/* Top of Sidebar: Circular SCIENCE STUDIO Logo aligned to Header Level */}
+          <div className="px-4 py-3 min-h-[96px] sm:min-h-[110px] md:min-h-[120px] lg:min-h-[128px] flex items-center justify-center relative border-b border-[#2d443a]/80">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-22 md:h-22 rounded-full bg-white/10 p-1.5 flex items-center justify-center shrink-0 border-[3px] border-[#d4af37] shadow-[0_0_22px_rgba(212,175,55,0.45)] overflow-hidden">
+              {institution.logoUrl ? (
+                <img 
+                  src={institution.logoUrl} 
+                  alt="Science Studio Logo" 
+                  className="w-full h-full object-cover rounded-full filter drop-shadow-md" 
+                />
+              ) : (
+                <Atom className="w-10 h-10 sm:w-12 sm:h-12 text-[#f7e4a1]" />
+              )}
             </div>
 
+            {/* Mobile-only close button */}
             <button 
               onClick={() => setMobileOpen(false)}
-              className="lg:hidden p-2 rounded-xl text-[#c0dfe1] hover:text-white hover:bg-white/10 transition cursor-pointer shrink-0"
+              className="lg:hidden absolute right-3 top-3 p-2 rounded-xl text-[#c0dfe1] hover:text-white hover:bg-white/10 transition cursor-pointer shrink-0"
               aria-label="বন্ধ করুন"
             >
               <X className="w-5 h-5 text-amber-200" />
             </button>
           </div>
 
-          {/* Navigation Items (All Options with Palette Colors) */}
-          <nav className="p-3 space-y-1 text-xs">
+          {/* Navigation Items starting immediately below the logo */}
+          <nav className="p-3 pt-2.5 space-y-1 text-xs">
             {/* 1. ড্যাশবোর্ড */}
             <button
               onClick={() => handleNavClick('dashboard')}

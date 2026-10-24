@@ -167,6 +167,23 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
   const [pickerSearch, setPickerSearch] = useState<string>('');
   const [drawerDisplayLimit, setDrawerDisplayLimit] = useState<number>(60);
 
+  // ProshnoLab & eProshnobank Advanced Question Bank Filter States
+  const [pickerSpecialFilter, setPickerSpecialFilter] = useState<'all' | 'repeated_board' | 'math' | 'theory' | 'বহুপদী'>('all');
+  const [pickerBoardFilter, setPickerBoardFilter] = useState<string>('সব বোর্ড');
+  const [pickerSchoolFilter, setPickerSchoolFilter] = useState<string>('সব প্রতিষ্ঠান');
+  const [expandedExplanations, setExpandedExplanations] = useState<Record<string, boolean>>({});
+
+  // Portrait A4 Live Customization States (ProshnoLab & eProshnobank Style)
+  const [portraitOptionStyle, setPortraitOptionStyle] = useState<'circle' | 'paren' | 'dot'>('circle');
+  const [portraitShowTickAnswer, setPortraitShowTickAnswer] = useState<boolean>(false);
+  const [portraitShowExplanation, setPortraitShowExplanation] = useState<boolean>(false);
+  const [portraitShowMiniOmr, setPortraitShowMiniOmr] = useState<boolean>(false);
+  const [portraitShowMarksBox, setPortraitShowMarksBox] = useState<boolean>(false);
+  const [portraitShowStudentInfo, setPortraitShowStudentInfo] = useState<boolean>(false);
+  const [portraitShowBoardTag, setPortraitShowBoardTag] = useState<boolean>(true);
+  const [portraitInlineEdit, setPortraitInlineEdit] = useState<boolean>(false);
+  const [portraitShowSidebar, setPortraitShowSidebar] = useState<boolean>(true);
+
   // Swap / Replace Modal
   const [swapModalOpen, setSwapModalOpen] = useState<boolean>(false);
   const [questionToSwap, setQuestionToSwap] = useState<{ section: 'k' | 'kh' | 'g'; index: number; question: QuestionItem } | null>(null);
@@ -201,6 +218,22 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
   const showNotificationMsg = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 3500);
+  };
+
+  // Shuffle questions across sections for Set ক, খ, গ, ঘ
+  const handleShufflePaperQuestions = () => {
+    const shuffleArr = <T,>(arr: T[]): T[] => {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    };
+    setSectionKQuestions(prev => shuffleArr(prev));
+    setSectionKhQuestions(prev => shuffleArr(prev));
+    setSectionGQuestions(prev => shuffleArr(prev));
+    showNotificationMsg('🔀 প্রশ্নের ক্রম সফলভাবে শাফল (Shuffle) করা হয়েছে!');
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -382,12 +415,47 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
       if (pickerType !== 'all' && q.type !== pickerType) {
         return false;
       }
+
+      // ProshnoLab Special Filter
+      const qText = q.type === 'cq'
+        ? (q.stimulus + ' ' + q.subQuestions.map(sq => sq.question).join(' '))
+        : (q.question || '');
+
+      if (pickerSpecialFilter === 'repeated_board') {
+        if (!q.boardInfo && q.importance !== 'very_high') return false;
+      } else if (pickerSpecialFilter === 'math') {
+        const hasMath = /[0-9০-৯+\-=×÷%√^]|কত|নির্ণয়|মান|বেগ|ত্বরণ|বল|দূরত্ব|ভর|শক্তি|ক্ষেত্রফল|আয়তন/.test(qText);
+        if (!hasMath) return false;
+      } else if (pickerSpecialFilter === 'theory') {
+        const isMathOnly = /কত\?|নির্ণয় কর/.test(qText);
+        if (isMathOnly) return false;
+      } else if (pickerSpecialFilter === 'বহুপদী') {
+        const isMulti = /i\.|ii\.|iii\.|নিচের কোনটি সঠিক/.test(qText);
+        if (!isMulti) return false;
+      }
+
+      // Board Filter
+      if (pickerBoardFilter !== 'সব বোর্ড') {
+        const boardShort = pickerBoardFilter.replace(' বোর্ড', '').slice(0, 2);
+        const bInfo = q.boardInfo || '';
+        if (!bInfo.includes(boardShort) && !bInfo.includes(pickerBoardFilter.replace(' বোর্ড', ''))) {
+          return false;
+        }
+      }
+
+      // Top School/College Filter
+      if (pickerSchoolFilter !== 'সব প্রতিষ্ঠান') {
+        const bInfo = (q.boardInfo || '') + ' ' + qText;
+        if (!bInfo.includes(pickerSchoolFilter.split(' ')[0])) {
+          // If question doesn't explicitly mention school, match high-importance questions for top schools
+          if (q.importance !== 'very_high') return false;
+        }
+      }
+
       // Search
       if (pickerSearch.trim()) {
         const query = pickerSearch.toLowerCase();
-        const inPrompt = q.type === 'cq' 
-          ? (q.stimulus + ' ' + q.subQuestions.map(sq => sq.question).join(' ')).toLowerCase()
-          : (q.question || '').toLowerCase();
+        const inPrompt = qText.toLowerCase();
         const inBoard = (q.boardInfo || '').toLowerCase();
         const inGrammar = (q.grammarTopic || '').toLowerCase();
         if (!inPrompt.includes(query) && !inBoard.includes(query) && !inGrammar.includes(query)) {
@@ -396,7 +464,7 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
       }
       return true;
     });
-  }, [questions, pickerClass, pickerSubject, pickerChapter, pickerGrammarTopic, pickerType, pickerSearch]);
+  }, [questions, pickerClass, pickerSubject, pickerChapter, pickerGrammarTopic, pickerType, pickerSpecialFilter, pickerBoardFilter, pickerSchoolFilter, pickerSearch]);
 
   // Check if a question is already added in the paper
   const isQuestionAdded = (id: string): boolean => {
@@ -2389,24 +2457,24 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
           onWatermarkOpacityChange={setWatermarkOpacity}
           onWatermarkSizeChange={setWatermarkSize}
           onShowWatermarkChange={setShowWatermark}
+          onShuffleQuestions={handleShufflePaperQuestions}
         />
       ) : (
-        /* Preview Mode (A4 Print Ready Paper View) */
-        <div className="space-y-6">
+        /* Preview Mode (A4 Print Ready Paper View + ProshnoLab/eProshnobank Live Studio) */
+        <div className="space-y-5">
           
           {/* Preview Configuration Toolbar */}
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4 print:hidden">
-            <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3 print:hidden">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => setPaperLayoutMode('landscape_booklet')}
                 className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition"
-                title="১০০ নম্বরের মডেল টেস্ট: ৪ সেকশন ল্যান্ডস্কেপ বুকলেট"
               >
                 <FoldHorizontal className="w-3.5 h-3.5" />
                 <span>৪-পৃষ্ঠা বুকলেট ভিউ</span>
               </button>
 
-              {/* Multiple Question Sets Selector (eProshnobank & ProshnoLab signature feature) */}
+              {/* Multiple Question Sets Selector */}
               <div className="flex items-center gap-1 bg-amber-50 p-1 rounded-xl border border-amber-300">
                 <span className="text-[11px] font-bold text-amber-900 px-1">সেট:</span>
                 {(['ক', 'খ', 'গ', 'ঘ'] as const).map(s => (
@@ -2417,12 +2485,11 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
                       setActiveQuestionSet(s);
                       showNotificationMsg(`📋 প্রশ্নপত্র সেট "${s}" নির্বাচন করা হয়েছে।`);
                     }}
-                    className={`px-2.5 py-0.5 rounded font-black text-xs cursor-pointer transition ${
+                    className={`px-2 py-0.5 rounded font-black text-xs cursor-pointer transition ${
                       activeQuestionSet === s
                         ? 'bg-amber-600 text-white shadow-2xs'
                         : 'text-amber-900 hover:bg-amber-100'
                     }`}
-                    title={`সেট ${s} অনুযায়ী প্রশ্ন ক্রম সাজান`}
                   >
                     {s}
                   </button>
@@ -2445,62 +2512,27 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
                     printColumns === 2 ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-500'
                   }`}
                 >
-                  ২ কলাম (ডিভাইডার সহ)
+                  ২ কলাম (কোচিং স্ট্যান্ডার্ড)
                 </button>
               </div>
 
-              {/* Font Size Selector */}
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
-                <span className="text-[11px] text-slate-500 font-bold px-1">ফন্ট:</span>
-                <button
-                  type="button"
-                  onClick={() => setPaperFontSize('compact')}
-                  className={`px-2 py-0.5 rounded font-bold transition cursor-pointer ${
-                    paperFontSize === 'compact' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'
-                  }`}
-                  title="ছোট ফন্ট (১ বা ২ পেজে নিখুঁত আটানোর জন্য)"
-                >
-                  ছোট
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaperFontSize('normal')}
-                  className={`px-2 py-0.5 rounded font-bold transition cursor-pointer ${
-                    paperFontSize === 'normal' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'
-                  }`}
-                >
-                  স্বাভাবিক
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaperFontSize('large')}
-                  className={`px-2 py-0.5 rounded font-bold transition cursor-pointer ${
-                    paperFontSize === 'large' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'
-                  }`}
-                >
-                  বড়
-                </button>
-              </div>
-
-              {/* Picture Watermark Configuration Button */}
+              {/* Live Inline Editing Button */}
               <button
-                onClick={() => setShowWatermarkModal(true)}
+                onClick={() => setPortraitInlineEdit(!portraitInlineEdit)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition border ${
-                  showWatermark 
-                    ? 'bg-teal-50 text-teal-800 border-teal-300 hover:bg-teal-100' 
-                    : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                  portraitInlineEdit
+                    ? 'bg-amber-500 text-white border-amber-600'
+                    : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
                 }`}
-                title="লগো জলছাপ আপলোড ও সেটিংস পরিবর্তন করুন"
               >
-                <ImageIcon className="w-3.5 h-3.5 text-teal-600" />
-                <span>লগো জলছাপ {showWatermark ? '(চালু)' : '(বন্ধ)'}</span>
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>এডিটিং মোড {portraitInlineEdit ? '(চালু)' : '(বন্ধ)'}</span>
               </button>
 
               {/* Quick Jump to OMR & Solution Sheet */}
               <button
                 onClick={() => setViewMode('omr-sheet')}
                 className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 text-xs font-bold flex items-center gap-1 cursor-pointer transition"
-                title="এই প্রশ্নপত্রের জন্য ওএমআর শিট তৈরি ও প্রিন্ট করুন"
               >
                 <Layers className="w-3.5 h-3.5" />
                 <span>ওএমআর শিট</span>
@@ -2509,341 +2541,513 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
               <button
                 onClick={() => setViewMode('answer-key')}
                 className="px-3 py-1.5 rounded-xl bg-teal-50 text-teal-800 border border-teal-300 hover:bg-teal-100 text-xs font-bold flex items-center gap-1 cursor-pointer transition"
-                title="উত্তরমালা ও শিক্ষক সমাধান গাইড দেখুন"
               >
                 <BookOpen className="w-3.5 h-3.5" />
                 <span>উত্তরমালা</span>
               </button>
             </div>
 
-            <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setPortraitShowSidebar(!portraitShowSidebar)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition border ${
+                  portraitShowSidebar
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'bg-slate-100 text-slate-700 border-slate-300'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>কাস্টমাইজেশন প্যানেল</span>
+              </button>
+
               <button
                 onClick={() => setViewMode('builder')}
-                className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs md:text-sm cursor-pointer transition"
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs cursor-pointer transition"
               >
-                ← প্রশ্ন এডিট করুন
+                ← প্রশ্ন এডিট
               </button>
 
               <button
                 onClick={handleOpenSaveModal}
-                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs md:text-sm shadow-xs flex items-center gap-1.5 cursor-pointer transition"
-                title="প্রশ্নপত্রটি শিরোনাম দিয়ে সংরক্ষণ করুন"
+                className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition"
               >
-                <Bookmark className="w-4 h-4 text-teal-200" />
-                <span>সেভ প্রশ্নপত্র</span>
+                <Bookmark className="w-3.5 h-3.5 text-teal-200" />
+                <span>সেভ</span>
               </button>
 
-              {/* Direct Spotless Portrait PDF Download */}
               <button
                 onClick={handleDownloadPortraitPDF}
                 disabled={isExportingPortraitPdf}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs md:text-sm shadow-xs flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
-                title="কোনো প্রকার কালো দাগ বা শেডো ছাড়াই নিখুঁত এ৪ পিডিএফ ডাউনলোড করুন"
+                className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
               >
-                <Download className="w-4 h-4 text-blue-100" />
-                <span>{isExportingPortraitPdf ? 'ডাউনলোড হচ্ছে...' : 'পিডিএফ ডাউনলোড (PDF)'}</span>
+                <Download className="w-3.5 h-3.5 text-blue-100" />
+                <span>{isExportingPortraitPdf ? 'ডাউনলোড হচ্ছে...' : 'ডাউনলোড (PDF)'}</span>
               </button>
 
               <button
                 onClick={handlePrint}
-                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs md:text-sm shadow-xs flex items-center gap-2 cursor-pointer transition"
-                title="সরাসরি প্রিন্ট প্রিভিউ খুলুন বা ব্রাউজার দিয়ে ভেক্টর পিডিএফ সেভ করুন"
+                className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition"
               >
-                <Printer className="w-4 h-4" />
-                <span>প্রিন্ট করুন (Print A4)</span>
+                <Printer className="w-3.5 h-3.5" />
+                <span>প্রিন্ট A4</span>
               </button>
             </div>
           </div>
 
-          {/* Actual A4 Sheet Container - Clean Zero-Shadow Border */}
-          <div className="flex justify-center">
-            <div 
-              id="printable-exam-paper"
-              className="w-full max-w-[210mm] bg-white rounded-none px-6 py-6 sm:px-9 sm:py-8 md:px-10 md:py-9 relative border border-slate-300 shadow-sm print:shadow-none print:border-none print:m-0 print:p-6 print:max-w-none text-slate-900 font-serif box-border"
-              style={{ minHeight: '297mm' }}
-            >
-              {/* Picture Watermark (Clean Centered Logo, Zero Black Smudges) */}
-              {showWatermark && watermarkImage && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden z-0">
-                  <img
-                    src={watermarkImage}
-                    alt="Watermark Logo"
-                    style={{
-                      opacity: watermarkOpacity,
-                      width: `${watermarkSize}px`,
-                      maxHeight: `${watermarkSize}px`
-                    }}
-                    className="object-contain filter grayscale pointer-events-none select-none transition-opacity"
-                  />
-                </div>
-              )}
-
-              {/* A4 Header Section (Strict Authentic Board & Cadet Exam Standard) */}
-              <div className="relative z-10 text-center space-y-1.5 pb-3 border-b-2 border-slate-900 mb-4">
-                {/* Academy Name */}
-                <h1 className="text-xl md:text-2xl font-black tracking-wide text-slate-950 font-sans">
-                  {config.academyName}
-                </h1>
-                
-                {/* Institution Address / EIIN */}
-                <p className="text-xs text-slate-600 font-medium font-sans">
-                  {institution.village}, {institution.upazila}, {institution.district} | EIIN: {institution.eiin}
-                </p>
-
-                {/* Exam Title & Set Code Badge */}
-                <div className="flex items-center justify-center gap-3 my-1">
-                  <div className="font-bold text-sm md:text-base text-slate-950 font-serif tracking-wide">
-                    {config.examTitle}
+          {/* Portrait A4 Split Workspace: Paper on Left + ProshnoLab Customization Studio on Right */}
+          <div className="flex flex-col xl:flex-row items-start justify-center gap-5">
+            {/* Actual A4 Sheet Container - Clean Zero-Shadow Border */}
+            <div className="flex-1 flex justify-center w-full overflow-x-auto">
+              <div 
+                id="printable-exam-paper"
+                className="w-full max-w-[210mm] bg-white rounded-none px-6 py-6 sm:px-9 sm:py-8 relative border-2 border-slate-900 shadow-sm print:shadow-none print:border-none print:m-0 print:p-6 print:max-w-none text-slate-900 font-serif box-border"
+                style={{ minHeight: '297mm' }}
+              >
+                {/* Picture Watermark */}
+                {showWatermark && watermarkImage && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden z-0">
+                    <img
+                      src={watermarkImage}
+                      alt="Watermark Logo"
+                      style={{
+                        opacity: watermarkOpacity,
+                        width: `${watermarkSize}px`,
+                        maxHeight: `${watermarkSize}px`
+                      }}
+                      className="object-contain filter grayscale pointer-events-none select-none transition-opacity"
+                    />
                   </div>
-                  <div className="px-2.5 py-0.5 rounded border border-slate-900 font-mono font-black text-xs bg-amber-50 text-slate-950 shadow-2xs">
-                    সেট কোড: {activeQuestionSet}
-                  </div>
-                </div>
+                )}
 
-                {/* Meta Details Row (Subject, Code, Class, Marks, Time) */}
-                <div className="pt-2 flex items-center justify-between text-xs md:text-sm font-semibold text-slate-800 px-1 border-t border-slate-300/80 font-sans">
-                  <div className="text-left space-y-0.5">
-                    {isEnglishPaper ? (
-                      <>
-                        <div>Subject: <strong>{config.subject === 'ইংরেজি' ? 'English (Compulsory)' : config.subject}</strong> {config.subjectCode ? `(Subject Code: ${config.subjectCode})` : ''}</div>
-                        <div>Class: {config.className} {config.section ? `• ${config.section}` : ''}</div>
-                      </>
+                {/* A4 Header Section (Authentic Board & Coaching Standard) */}
+                <div className="relative z-10 text-center space-y-1.5 pb-2.5 border-b-2 border-slate-900 mb-3.5">
+                  <div className="flex items-start justify-between gap-2">
+                    {portraitShowMarksBox ? (
+                      <div className="border border-slate-800 px-2 py-1 text-[10px] font-sans font-bold text-center shrink-0 bg-white">
+                        <div className="border-b border-slate-400 pb-0.5">প্রাপ্ত নম্বর</div>
+                        <div className="h-4" />
+                      </div>
                     ) : (
-                      <>
-                        <div>বিষয়: <strong>{config.subject}</strong> (বিষয় কোড: {config.subjectCode})</div>
-                        <div>শ্রেণি: {config.className} {config.section ? `• ${config.section}` : ''}</div>
-                      </>
+                      <div className="w-12 shrink-0" />
                     )}
+
+                    <div className="flex-1 text-center">
+                      <h1
+                        className="text-xl md:text-2xl font-black tracking-wide text-slate-950 font-sans"
+                        contentEditable={portraitInlineEdit}
+                        suppressContentEditableWarning
+                      >
+                        {config.academyName}
+                      </h1>
+                      <p className="text-xs text-slate-600 font-medium font-sans" contentEditable={portraitInlineEdit} suppressContentEditableWarning>
+                        {institution.village}, {institution.upazila}, {institution.district} {institution.eiin ? `| EIIN: ${institution.eiin}` : ''}
+                      </p>
+                      <div
+                        className="font-bold text-sm md:text-base text-slate-950 font-serif tracking-wide mt-0.5"
+                        contentEditable={portraitInlineEdit}
+                        suppressContentEditableWarning
+                      >
+                        {config.examTitle}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1 shrink-0 font-sans">
+                      <div className="px-2 py-0.5 rounded border border-slate-900 font-mono font-black text-xs bg-amber-50 text-slate-950">
+                        সেট: {activeQuestionSet}
+                      </div>
+                      {config.subjectCode && (
+                        <div className="flex items-center gap-0.5 text-[10px] font-bold">
+                          <span className="mr-0.5">কোড:</span>
+                          {config.subjectCode.split('').map((d, i) => (
+                            <span key={i} className="inline-flex items-center justify-center w-4 h-4 border border-slate-800 font-mono bg-white">
+                              {d}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="text-right space-y-0.5">
-                    {isEnglishPaper ? (
-                      <>
-                        <div>Time: <strong>{config.duration}</strong></div>
-                        <div>Full Marks: <strong>{config.totalMarks}</strong></div>
-                      </>
-                    ) : (
-                      <>
-                        <div>সময়: <strong>{config.duration}</strong></div>
-                        <div>পূর্ণমান: <strong>{config.totalMarks}</strong></div>
-                      </>
-                    )}
+                  {portraitShowStudentInfo && (
+                    <div className="pt-1 border-t border-slate-300 flex items-center justify-between gap-3 text-xs font-sans font-semibold text-slate-800">
+                      <span className="flex-1 text-left">শিক্ষার্থীর নাম: ................................................................</span>
+                      <span>রোল: .......................</span>
+                      <span>শাখা: ...................</span>
+                    </div>
+                  )}
+
+                  {/* Meta Details Row */}
+                  <div className="pt-1.5 flex items-center justify-between text-xs md:text-sm font-semibold text-slate-800 px-1 border-t border-slate-300/80 font-sans">
+                    <div className="text-left space-y-0.5" contentEditable={portraitInlineEdit} suppressContentEditableWarning>
+                      {isEnglishPaper ? (
+                        <>
+                          <div>Subject: <strong>{config.subject === 'ইংরেজি' ? 'English (Compulsory)' : config.subject}</strong></div>
+                          <div>Class: {config.className} {config.section ? `• ${config.section}` : ''}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div>বিষয়: <strong>{config.subject}</strong> | শ্রেণি: {config.className} {config.section ? `(${config.section})` : ''}</div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="text-right space-y-0.5" contentEditable={portraitInlineEdit} suppressContentEditableWarning>
+                      {isEnglishPaper ? (
+                        <div>Time: <strong>{config.duration}</strong> | Full Marks: <strong>{config.totalMarks}</strong></div>
+                      ) : (
+                        <div>সময়: <strong>{config.duration}</strong> | পূর্ণমান: <strong>{config.totalMarks}</strong></div>
+                      )}
+                    </div>
                   </div>
+
+                  {config.instructions && (
+                    <div
+                      className="text-[11px] text-slate-700 italic pt-1 border-t border-dashed border-slate-300 text-center"
+                      contentEditable={portraitInlineEdit}
+                      suppressContentEditableWarning
+                    >
+                      [{config.instructions}]
+                    </div>
+                  )}
                 </div>
 
-                {/* Instructions Box (বিশেষ দ্রষ্টব্য) */}
-                {config.instructions && (
-                  <div className="text-[11px] md:text-xs text-slate-700 italic pt-1 border-t border-dashed border-slate-300 text-center">
-                    {config.instructions}
-                  </div>
-                )}
-              </div>
+                {/* Questions Body */}
+                <div className="relative z-10 space-y-5">
 
-              {/* Questions Body */}
-              <div className="relative z-10 space-y-6">
+                  {/* 'ক' বিভাগ (MCQ) or English 'Part A: Grammar' in Print (Strictly ZERO underlines under MCQs!) */}
+                  {sectionKQuestions.length > 0 && (
+                    <div className="space-y-2.5">
+                      <div className="text-center">
+                        <h2 className="inline-block text-xs md:text-sm font-bold uppercase tracking-wider border-b border-slate-900 pb-0.5">
+                          {isEnglishPaper
+                            ? config.pattern === 'english_grammar_test'
+                              ? `English Grammar Assessment Test [Marks: ${toBengaliNumber(sectionKMarks)}]`
+                              : `Part A : Grammar [Marks: ${toBengaliNumber(sectionKMarks)}]`
+                            : config.pattern === 'mcq_only' 
+                              ? 'বহুনির্বাচনী প্রশ্নাবলী' 
+                              : `'ক' বিভাগ : বহুনির্বাচনী প্রশ্ন [পূর্ণমান: ${toBengaliNumber(sectionKMarks)}]`}
+                        </h2>
+                        <p className="text-[10.5px] text-slate-600 italic mt-0.5">
+                          {isEnglishPaper
+                            ? '[Answer all the questions. Figures in the right margin indicate full marks.]'
+                            : '[সকল প্রশ্নের উত্তর দাও। প্রতিটি প্রশ্নের মান ১। সঠিক উত্তরের বৃত্ত ভরাট করো।]'}
+                        </p>
+                      </div>
 
-                {/* 'ক' বিভাগ (MCQ) or English 'Part A: Grammar' in Print */}
-                {sectionKQuestions.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="text-center">
-                      <h2 className="inline-block text-xs md:text-sm font-bold uppercase tracking-wider border-b border-slate-900 pb-0.5">
-                        {isEnglishPaper
-                          ? config.pattern === 'english_grammar_test'
-                            ? `English Grammar Assessment Test [Marks: ${toBengaliNumber(sectionKMarks)}]`
-                            : `Part A : Grammar [Marks: ${toBengaliNumber(sectionKMarks)}]`
-                          : config.pattern === 'mcq_only' 
-                            ? 'বহুনির্বাচনী প্রশ্নাবলী' 
-                            : `'ক' বিভাগ : বহুনির্বাচনী প্রশ্ন [পূর্ণমান: ${toBengaliNumber(sectionKMarks)}]`}
-                      </h2>
-                      <p className="text-[11px] text-slate-600 italic mt-0.5">
-                        {isEnglishPaper
-                          ? '[Answer all the questions. Figures in the right margin indicate full marks.]'
-                          : '[সকল প্রশ্নের উত্তর দাও। প্রতিটি প্রশ্নের মান ১। সঠিক উত্তরের বৃত্ত ভরাট করো / খাতায় লেখো।]'}
-                      </p>
-                    </div>
-
-                    <div className={`grid ${printColumns === 2 && !isEnglishPaper ? 'grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3.5 md:divide-x md:divide-slate-300' : 'grid-cols-1 gap-y-3.5'} ${
-                      paperFontSize === 'compact' ? 'text-[11px] leading-snug' : paperFontSize === 'large' ? 'text-[13px] leading-relaxed' : 'text-xs leading-relaxed'
-                    }`}>
-                      {sectionKQuestions.map((q, idx) => (
-                        <div key={q.id || idx} className="space-y-1 break-inside-avoid">
-                          {q.type === 'short' ? (
-                            <div className="space-y-1.5 border-b border-slate-200/70 pb-3">
-                              <div className="flex items-start justify-between gap-3 font-semibold text-slate-950">
-                                <div className="leading-snug">
-                                  <span className="font-bold">{q.itemNumber ? `${q.itemNumber}. ` : `${idx + 1}. `}</span>
-                                  <span>{q.question.split('\n')[0]}</span>
-                                </div>
-                                {q.marksDistribution && (
-                                  <span className="font-mono text-slate-700 shrink-0 text-[11px] font-bold">
-                                    {q.marksDistribution}
-                                  </span>
-                                )}
-                              </div>
-
-                              {(q as ShortQuestion).cluesBox && (q as ShortQuestion).cluesBox!.length > 0 && (
-                                <div className="p-1.5 border border-slate-400 rounded text-[11px] font-mono text-center my-1 bg-slate-50/50">
-                                  [ {(q as ShortQuestion).cluesBox!.join(' | ')} ]
-                                </div>
-                              )}
-
-                              {q.question.includes('\n') && (
-                                <div className="text-[11.5px] font-serif leading-relaxed text-slate-900 whitespace-pre-line pl-4">
-                                  {q.question.substring(q.question.indexOf('\n') + 1).trim()}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <>
-                              <p className="font-semibold text-slate-950">
-                                <span>{toBengaliNumber(idx + 1)}. </span>
-                                {q.type === 'mcq' ? q.question : ''}
-                              </p>
-
-                              {q.type === 'mcq' && (
-                                <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pl-3 text-[11px] text-slate-800">
-                                  <span>(ক) {q.options[0]}</span>
-                                  <span>(খ) {q.options[1]}</span>
-                                  <span>(গ) {q.options[2]}</span>
-                                  <span>(ঘ) {q.options[3]}</span>
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 'খ' বিভাগ (Short Questions) in Print */}
-                {sectionKhQuestions.length > 0 && (
-                  <div className="space-y-3 pt-2">
-                    <div className="text-center">
-                      <h2 className="inline-block text-xs md:text-sm font-bold uppercase tracking-wider border-b border-slate-900 pb-0.5">
-                        {config.pattern === 'short_only'
-                          ? 'সংক্ষিপ্ত প্রশ্নাবলী'
-                          : `'খ' বিভাগ : সংক্ষিপ্ত প্রশ্ন [পূর্ণমান: ${toBengaliNumber(sectionKhMarks)}]`}
-                      </h2>
-                      <p className="text-[11px] text-slate-600 italic mt-0.5">
-                        [যেকোনো {toBengaliNumber(Math.min(sectionKhQuestions.length, 10))}টি প্রশ্নের উত্তর দাও। প্রতিটি প্রশ্নের মান ২।]
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-y-2 text-xs">
-                      {sectionKhQuestions.map((q, idx) => (
-                        <div key={q.id || idx} className="flex items-start justify-between gap-4 break-inside-avoid">
-                          <p className="text-slate-950">
-                            <strong>{toBengaliNumber(idx + 1)}. </strong>
-                            {q.type === 'short' ? q.question : ''}
-                          </p>
-                          <span className="font-mono text-slate-500 shrink-0">[{toBengaliNumber(q.marks || 2)}]</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 'গ' বিভাগ (CQ) or English 'Part B: Composition' in Print */}
-                {sectionGQuestions.length > 0 && (
-                  <div className="space-y-4 pt-3">
-                    <div className="text-center">
-                      <h2 className="inline-block text-xs md:text-sm font-bold uppercase tracking-wider border-b border-slate-900 pb-0.5">
-                        {isEnglishPaper
-                          ? `Part B : Composition [Marks: ${toBengaliNumber(sectionGMarks)}]`
-                          : config.pattern === 'cq_only'
-                            ? 'সৃজনশীল প্রশ্নাবলী'
-                            : config.pattern === 'k_kh_mcq_cq'
-                              ? `'খ' বিভাগ : সৃজনশীল প্রশ্ন [পূর্ণমান: ${toBengaliNumber(sectionGMarks)}]`
-                              : `'গ' বিভাগ : সৃজনশীল প্রশ্ন [পূর্ণমান: ${toBengaliNumber(sectionGMarks)}]`}
-                      </h2>
-                      <p className="text-[11px] text-slate-600 italic mt-0.5">
-                        {isEnglishPaper
-                          ? '[Answer the following questions / write the composition as instructed.]'
-                          : '[উদ্দীপকগুলো মনোযোগ সহকারে পড়ে সংশ্লিষ্ট প্রশ্নগুলোর যথাযথ উত্তর প্রদান করো।]'}
-                      </p>
-                    </div>
-
-                    <div className="space-y-4 text-xs">
-                      {sectionGQuestions.map((q, idx) => (
-                        <div key={q.id || idx} className="space-y-1.5 break-inside-avoid border-b border-slate-200/70 pb-3">
-                          {q.type === 'short' ? (
-                            <div className="space-y-1.5">
-                              <div className="flex items-start justify-between gap-3 font-semibold text-slate-950">
-                                <div className="leading-snug">
-                                  <span className="font-bold">{q.itemNumber ? `${q.itemNumber}. ` : `${sectionKQuestions.length + idx + 1}. `}</span>
-                                  <span>{q.question.split('\n')[0]}</span>
-                                </div>
-                                {q.marksDistribution && (
-                                  <span className="font-mono text-slate-700 shrink-0 text-[11px] font-bold">
-                                    {q.marksDistribution}
-                                  </span>
-                                )}
-                              </div>
-                              {q.question.includes('\n') && (
-                                <div className="text-[11.5px] font-serif leading-relaxed text-slate-900 whitespace-pre-line pl-4">
-                                  {q.question.substring(q.question.indexOf('\n') + 1).trim()}
-                                </div>
-                              )}
-                            </div>
-                          ) : q.type === 'cq' ? (
-                            <div className="space-y-1.5 font-serif text-slate-950">
-                              <div className="font-bold text-slate-950 font-sans text-xs">
-                                {toBengaliNumber(idx + 1)}. নিচের উদ্দীপকটি পড়ে সংশ্লিষ্ট প্রশ্নগুলোর যথাযথ উত্তর দাও:
-                              </div>
-
-                              {/* Stimulus - Clean without border */}
-                              <div className="text-justify leading-relaxed text-slate-950 text-[11.5px] font-serif py-0.5">
-                                {q.stimulus}
-                              </div>
-
-                              {/* Sub Questions */}
-                              <div className="space-y-1 pl-3 font-sans pt-0.5">
-                                {q.subQuestions.map(sq => (
-                                  <div key={sq.label} className="flex items-start justify-between text-slate-950 text-[11px]">
-                                    <span className="leading-snug"><strong>({sq.label})</strong> {sq.question}</span>
-                                    <span className="font-mono text-slate-700 font-bold pl-2 shrink-0">{toBengaliNumber(sq.marks)}</span>
+                      <div className={`grid ${printColumns === 2 && !isEnglishPaper ? 'grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2' : 'grid-cols-1 gap-y-2'} ${
+                        paperFontSize === 'compact' ? 'text-[11px] leading-snug' : paperFontSize === 'large' ? 'text-[13px] leading-relaxed' : 'text-xs leading-snug'
+                      }`}>
+                        {sectionKQuestions.map((q, idx) => (
+                          <div key={q.id || idx} className="mcq-question-item space-y-0.5 break-inside-avoid">
+                            {q.type === 'short' ? (
+                              <div className="space-y-1 pb-2">
+                                <div className="flex items-start justify-between gap-3 font-semibold text-slate-950">
+                                  <div className="leading-snug" contentEditable={portraitInlineEdit} suppressContentEditableWarning>
+                                    <span className="font-bold">{q.itemNumber ? `${q.itemNumber}. ` : `${idx + 1}. `}</span>
+                                    <span>{q.question.split('\n')[0]}</span>
                                   </div>
-                                ))}
+                                  {q.marksDistribution && (
+                                    <span className="font-mono text-slate-700 shrink-0 text-[11px] font-bold">
+                                      {q.marksDistribution}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {(q as ShortQuestion).cluesBox && (q as ShortQuestion).cluesBox!.length > 0 && (
+                                  <div className="p-1.5 border border-slate-400 rounded text-[11px] font-mono text-center my-1 bg-slate-50/50">
+                                    [ {(q as ShortQuestion).cluesBox!.join(' | ')} ]
+                                  </div>
+                                )}
+
+                                {q.question.includes('\n') && (
+                                  <div className="text-[11.5px] font-serif leading-relaxed text-slate-900 whitespace-pre-line pl-4" contentEditable={portraitInlineEdit} suppressContentEditableWarning>
+                                    {q.question.substring(q.question.indexOf('\n') + 1).trim()}
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                            ) : (
+                              <>
+                                <p className="font-semibold text-slate-950 font-sans" contentEditable={portraitInlineEdit} suppressContentEditableWarning>
+                                  <span>{toBengaliNumber(idx + 1)}. </span>
+                                  {q.type === 'mcq' ? q.question : ''}
+                                  {portraitShowBoardTag && q.boardInfo && (
+                                    <span className="ml-1 text-[9.5px] font-normal text-slate-600">[{q.boardInfo}]</span>
+                                  )}
+                                </p>
 
-                {/* Optional Answer Key Section */}
-                {showAnswerKey && sectionKQuestions.length > 0 && (
-                  <div className="pt-6 border-t-2 border-dashed border-slate-400 space-y-2 break-before-page">
-                    <div className="text-center font-bold text-xs uppercase tracking-wider text-slate-800">
-                      ★ বহুনির্বাচনী প্রশ্নাবলীর উত্তরমালা (Answer Key) ★
-                    </div>
-                    <div className="grid grid-cols-5 sm:grid-cols-10 gap-1 text-[11px] text-center font-mono">
-                      {sectionKQuestions.map((q, idx) => {
-                        const correctLetters = ['ক', 'খ', 'গ', 'ঘ'];
-                        return (
-                          <div key={idx} className="p-1 border border-slate-300 bg-slate-50 rounded">
-                            <span className="text-slate-500">{toBengaliNumber(idx + 1)}:</span>
-                            <strong className="text-emerald-700 ml-1">
-                              {q.type === 'mcq' ? correctLetters[q.correctOption] : '-'}
-                            </strong>
+                                {q.type === 'mcq' && (
+                                  <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pl-2 text-[11px] text-slate-800 font-sans">
+                                    {q.options.map((opt, oIdx) => {
+                                      const ltr = ['ক', 'খ', 'গ', 'ঘ'][oIdx];
+                                      const isAns = portraitShowTickAnswer && q.correctOption === oIdx;
+                                      return (
+                                        <span key={oIdx} className="inline-flex items-center gap-1" contentEditable={portraitInlineEdit} suppressContentEditableWarning>
+                                          {portraitOptionStyle === 'circle' ? (
+                                            <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full border text-[9.5px] font-bold shrink-0 ${
+                                              isAns ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-700 text-slate-900'
+                                            }`}>
+                                              {ltr}
+                                            </span>
+                                          ) : portraitOptionStyle === 'dot' ? (
+                                            <strong className={isAns ? 'underline text-emerald-800' : ''}>{ltr}.</strong>
+                                          ) : (
+                                            <strong className={isAns ? 'underline text-emerald-800' : ''}>({ltr})</strong>
+                                          )}
+                                          <span>{opt}</span>
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {portraitShowExplanation && q.type === 'mcq' && (
+                                  <div className="mt-1 ml-2 p-1 rounded border border-slate-300 bg-slate-50 text-[10px] text-slate-700 font-sans">
+                                    <strong>ব্যাখ্যা:</strong> সঠিক উত্তর ({['ক', 'খ', 'গ', 'ঘ'][q.correctOption]}) {q.options[q.correctOption]}।
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Footer Page Note */}
-                <div className="pt-8 text-center text-[10px] text-slate-400 flex items-center justify-between border-t border-slate-200 mt-6">
-                  <span>{config.academyName}</span>
-                  <span>— শুভকামনা সহ —</span>
-                  <span>মুদ্রিত সংস্করণ ২০২৬</span>
+                  {/* 'খ' বিভাগ (Short Questions) in Print */}
+                  {sectionKhQuestions.length > 0 && (
+                    <div className="space-y-2.5 pt-2">
+                      <div className="text-center">
+                        <h2 className="inline-block text-xs md:text-sm font-bold uppercase tracking-wider border-b border-slate-900 pb-0.5">
+                          {config.pattern === 'short_only'
+                            ? 'সংক্ষিপ্ত প্রশ্নাবলী'
+                            : `'খ' বিভাগ : সংক্ষিপ্ত প্রশ্ন [পূর্ণমান: ${toBengaliNumber(sectionKhMarks)}]`}
+                        </h2>
+                        <p className="text-[10.5px] text-slate-600 italic mt-0.5">
+                          [যেকোনো {toBengaliNumber(Math.min(sectionKhQuestions.length, 10))}টি প্রশ্নের উত্তর দাও। প্রতিটি প্রশ্নের মান ২।]
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-y-1.5 text-xs">
+                        {sectionKhQuestions.map((q, idx) => (
+                          <div key={q.id || idx} className="flex items-start justify-between gap-4 break-inside-avoid">
+                            <p className="text-slate-950" contentEditable={portraitInlineEdit} suppressContentEditableWarning>
+                              <strong>{toBengaliNumber(idx + 1)}. </strong>
+                              {q.type === 'short' ? q.question : ''}
+                            </p>
+                            <span className="font-mono text-slate-600 shrink-0">[{toBengaliNumber(q.marks || 2)}]</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 'গ' বিভাগ (CQ) or English 'Part B: Composition' in Print */}
+                  {sectionGQuestions.length > 0 && (
+                    <div className="space-y-3.5 pt-2">
+                      <div className="text-center">
+                        <h2 className="inline-block text-xs md:text-sm font-bold uppercase tracking-wider border-b border-slate-900 pb-0.5">
+                          {isEnglishPaper
+                            ? `Part B : Composition [Marks: ${toBengaliNumber(sectionGMarks)}]`
+                            : config.pattern === 'cq_only'
+                              ? 'সৃজনশীল প্রশ্নাবলী'
+                              : config.pattern === 'k_kh_mcq_cq'
+                                ? `'খ' বিভাগ : সৃজনশীল প্রশ্ন [পূর্ণমান: ${toBengaliNumber(sectionGMarks)}]`
+                                : `'গ' বিভাগ : সৃজনশীল প্রশ্ন [পূর্ণমান: ${toBengaliNumber(sectionGMarks)}]`}
+                        </h2>
+                        <p className="text-[10.5px] text-slate-600 italic mt-0.5">
+                          {isEnglishPaper
+                            ? '[Answer the following questions / write the composition as instructed.]'
+                            : '[উদ্দীপকগুলো মনোযোগ সহকারে পড়ে সংশ্লিষ্ট প্রশ্নগুলোর যথাযথ উত্তর প্রদান করো।]'}
+                        </p>
+                      </div>
+
+                      <div className="space-y-3 text-xs">
+                        {sectionGQuestions.map((q, idx) => (
+                          <div key={q.id || idx} className="space-y-1 break-inside-avoid pb-2">
+                            {q.type === 'short' ? (
+                              <div className="space-y-1">
+                                <div className="flex items-start justify-between gap-3 font-semibold text-slate-950">
+                                  <div className="leading-snug" contentEditable={portraitInlineEdit} suppressContentEditableWarning>
+                                    <span className="font-bold">{q.itemNumber ? `${q.itemNumber}. ` : `${sectionKQuestions.length + idx + 1}. `}</span>
+                                    <span>{q.question.split('\n')[0]}</span>
+                                  </div>
+                                  {q.marksDistribution && (
+                                    <span className="font-mono text-slate-700 shrink-0 text-[11px] font-bold">
+                                      {q.marksDistribution}
+                                    </span>
+                                  )}
+                                </div>
+                                {q.question.includes('\n') && (
+                                  <div className="text-[11.5px] font-serif leading-relaxed text-slate-900 whitespace-pre-line pl-4" contentEditable={portraitInlineEdit} suppressContentEditableWarning>
+                                    {q.question.substring(q.question.indexOf('\n') + 1).trim()}
+                                  </div>
+                                )}
+                              </div>
+                            ) : q.type === 'cq' ? (
+                              <div className="space-y-1 font-serif text-slate-950">
+                                <div className="font-bold text-slate-950 font-sans text-xs" contentEditable={portraitInlineEdit} suppressContentEditableWarning>
+                                  {toBengaliNumber(idx + 1)}. নিচের উদ্দীপকটি পড়ে সংশ্লিষ্ট প্রশ্নগুলোর যথাযথ উত্তর দাও:
+                                  {portraitShowBoardTag && q.boardInfo && (
+                                    <span className="ml-1.5 text-[10px] font-normal text-slate-600">[{q.boardInfo}]</span>
+                                  )}
+                                </div>
+
+                                <div className="text-justify leading-relaxed text-slate-950 text-[11.5px] font-serif py-0.5" contentEditable={portraitInlineEdit} suppressContentEditableWarning>
+                                  {q.stimulus}
+                                </div>
+
+                                <div className="space-y-0.5 pl-3 font-sans pt-0.5">
+                                  {q.subQuestions.map(sq => (
+                                    <div key={sq.label} className="flex items-start justify-between text-slate-950 text-[11px]">
+                                      <span className="leading-snug" contentEditable={portraitInlineEdit} suppressContentEditableWarning>
+                                        <strong>({sq.label})</strong> {sq.question}
+                                      </span>
+                                      <span className="font-mono text-slate-700 font-bold pl-2 shrink-0">{toBengaliNumber(sq.marks)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Optional Attached Mini OMR Grid at Bottom */}
+                  {portraitShowMiniOmr && sectionKQuestions.some(q => q.type === 'mcq') && (
+                    <div className="pt-3 border-t-2 border-dashed border-slate-700 bg-slate-50/70 p-2.5 rounded">
+                      <div className="flex items-center justify-between text-[10px] font-bold font-sans text-slate-900 mb-1.5 border-b border-slate-300 pb-1">
+                        <span>✂ সংযুক্ত মিনি OMR উত্তরপত্র (সঠিক বৃত্তটি কালো বলপেন দিয়ে ভরাট করো)</span>
+                        <span>নাম: ....................................... রোল: ................ সেট: [{activeQuestionSet}]</span>
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-x-3 gap-y-1 font-sans text-[9.5px]">
+                        {sectionKQuestions
+                          .filter(q => q.type === 'mcq')
+                          .slice(0, 30)
+                          .map((q, idx) => (
+                            <div key={idx} className="flex items-center gap-1">
+                              <span className="w-4 font-bold text-right">{toBengaliNumber(idx + 1)}.</span>
+                              {(['ক', 'খ', 'গ', 'ঘ'] as const).map((ltr, oIdx) => {
+                                const isAns = portraitShowTickAnswer && (q as MCQQuestion).correctOption === oIdx;
+                                return (
+                                  <span
+                                    key={ltr}
+                                    className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border text-[8px] font-bold ${
+                                      isAns ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-600 text-slate-800 bg-white'
+                                    }`}
+                                  >
+                                    {ltr}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Optional Answer Key Section */}
+                  {showAnswerKey && sectionKQuestions.length > 0 && (
+                    <div className="pt-4 border-t-2 border-dashed border-slate-400 space-y-2">
+                      <div className="text-center font-bold text-xs uppercase tracking-wider text-slate-800">
+                        ★ বহুনির্বাচনী প্রশ্নাবলীর উত্তরমালা (সেট: {activeQuestionSet}) ★
+                      </div>
+                      <div className="grid grid-cols-5 sm:grid-cols-10 gap-1 text-[11px] text-center font-mono">
+                        {sectionKQuestions.map((q, idx) => {
+                          const correctLetters = ['ক', 'খ', 'গ', 'ঘ'];
+                          return (
+                            <div key={idx} className="p-1 border border-slate-300 bg-slate-50 rounded">
+                              <span className="text-slate-500">{toBengaliNumber(idx + 1)}:</span>
+                              <strong className="text-emerald-700 ml-1">
+                                {q.type === 'mcq' ? correctLetters[q.correctOption] : '-'}
+                              </strong>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Footer Page Note */}
+                  <div className="pt-6 text-center text-[10px] text-slate-500 flex items-center justify-between border-t border-slate-200 mt-4">
+                    <span>{config.academyName}</span>
+                    <span>— সমাপ্ত —</span>
+                    <span>সেট: {activeQuestionSet}</span>
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Right Sidebar: ProshnoLab / eProshnobank Live Customization Studio for Portrait A4 */}
+            {portraitShowSidebar && (
+              <div className="w-full xl:w-72 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-4 print:hidden sticky top-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <span className="font-bold text-sm text-slate-900">A4 কাস্টমাইজেশন স্টুডিও</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Live</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleShufflePaperQuestions}
+                  className="w-full py-2 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>প্রশ্ন শাফল করুন (Shuffle Set)</span>
+                </button>
+
+                <div className="space-y-1.5 text-xs">
+                  {[
+                    { label: 'এডিটিং মোড (Live Edit)', state: portraitInlineEdit, setter: setPortraitInlineEdit },
+                    { label: 'উত্তরপত্র (সঠিক বৃত্ত ভরাট ●)', state: portraitShowTickAnswer, setter: setPortraitShowTickAnswer },
+                    { label: 'সমাধান / ব্যাখ্যা সংযুক্ত', state: portraitShowExplanation, setter: setPortraitShowExplanation },
+                    { label: 'প্রশ্নে মিনি OMR সংযুক্ত', state: portraitShowMiniOmr, setter: setPortraitShowMiniOmr },
+                    { label: 'শেষে পূর্ণাঙ্গ উত্তরমালা ছক', state: showAnswerKey, setter: setShowAnswerKey },
+                    { label: 'বোর্ড ও সাল ট্যাগ [ঢা. বো. ২৪]', state: portraitShowBoardTag, setter: setPortraitShowBoardTag },
+                    { label: 'প্রাপ্ত নম্বর ঘর (উপরে বামে)', state: portraitShowMarksBox, setter: setPortraitShowMarksBox },
+                    { label: 'শিক্ষার্থীর নাম ও রোল ঘর', state: portraitShowStudentInfo, setter: setPortraitShowStudentInfo },
+                    { label: 'লগো জলছাপ (Watermark)', state: showWatermark, setter: setShowWatermark },
+                  ].map((item, idx) => (
+                    <label
+                      key={idx}
+                      className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-slate-50 cursor-pointer"
+                    >
+                      <span className="font-medium text-slate-700">{item.label}</span>
+                      <input
+                        type="checkbox"
+                        checked={item.state}
+                        onChange={(e) => item.setter(e.target.checked)}
+                        className="w-4 h-4 rounded accent-emerald-600 cursor-pointer"
+                      />
+                    </label>
+                  ))}
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 space-y-2 text-xs">
+                  <span className="font-bold text-slate-700 block">অপশন স্টাইল:</span>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[
+                      { id: 'circle', label: 'বৃত্ত ⓐ' },
+                      { id: 'paren', label: 'বন্ধনী (ক)' },
+                      { id: 'dot', label: 'ডট ক.' },
+                    ].map(st => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => setPortraitOptionStyle(st.id as any)}
+                        className={`py-1.5 rounded-lg font-bold border text-[11px] cursor-pointer ${
+                          portraitOptionStyle === st.id
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-slate-50 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -2877,39 +3081,48 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
         />
       )}
 
-      {/* Drawer / Modal: Add Questions from Question Bank */}
+      {/* Drawer / Modal: Add Questions from Question Bank (ProshnoLab & eProshnobank Style) */}
       {showAddDrawer && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 md:p-6 print:hidden">
-          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-2 md:p-5 print:hidden">
+          <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95">
             {/* Header */}
-            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-emerald-600" />
-                  <span>প্রশ্ন ব্যাংক থেকে প্রশ্ন নির্বাচন করুন</span>
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {targetSectionForAdd === 'k' ? '\'ক\' বিভাগ (MCQ)-এর জন্য প্রশ্ন খুঁজুন' :
-                   targetSectionForAdd === 'kh' ? '\'খ\' বিভাগ (সংক্ষিপ্ত)-এর জন্য প্রশ্ন খুঁজুন' :
-                   targetSectionForAdd === 'g' ? '\'গ\' বিভাগ (সৃজনশীল)-এর জন্য প্রশ্ন খুঁজুন' :
-                   'যেকোনো প্রশ্ন পছন্দ করুন, স্বয়ংক্রিয়ভাবে সংশ্লিষ্ট বিভাগে যুক্ত হবে'}
-                </p>
+            <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm md:text-base text-white flex items-center gap-2">
+                    <span>প্রশ্ন ব্যাংক ও বোর্ড অ্যানালাইসিস স্টুডিও</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                      ProshnoLab + eProshnobank ফিল্টার
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-300">
+                    বোর্ড, শীর্ষস্থানীয় স্কুল/কলেজ, গাণিতিক ও রিপিটেড প্রশ্ন ফিল্টার করে ১-ক্লিকে প্রশ্নপত্রে যুক্ত করুন
+                  </p>
+                </div>
               </div>
 
-              <button
-                onClick={() => setShowAddDrawer(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 rounded-lg bg-emerald-600 text-white font-bold text-xs">
+                  যুক্ত প্রশ্ন: {toBengaliNumber(sectionKQuestions.length + sectionKhQuestions.length + sectionGQuestions.length)}টি
+                </span>
+                <button
+                  onClick={() => setShowAddDrawer(false)}
+                  className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Filter bar */}
-            <div className="p-3 bg-white border-b border-slate-200 space-y-2.5 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+            <div className="p-3 bg-slate-50 border-b border-slate-200 space-y-2.5 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
                 {/* Class Filter */}
                 <div>
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1">শ্রেণি নির্বাচন</label>
+                  <label className="text-[10.5px] font-bold text-slate-500 block mb-0.5">শ্রেণি</label>
                   <select
                     value={pickerClass}
                     onChange={(e) => {
@@ -2921,7 +3134,7 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
                       }
                       setPickerChapter('সব অধ্যায়');
                     }}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 font-medium outline-none focus:border-teal-500"
+                    className="w-full px-2 py-1.5 rounded-lg border border-slate-300 bg-white font-semibold outline-none focus:border-teal-500"
                   >
                     {classesList.map(cls => (
                       <option key={cls} value={cls}>{cls}</option>
@@ -2931,16 +3144,16 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
 
                 {/* Subject */}
                 <div>
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1">বিষয় নির্বাচন</label>
+                  <label className="text-[10.5px] font-bold text-slate-500 block mb-0.5">বিষয়</label>
                   <select
                     value={pickerSubject}
                     onChange={(e) => {
                       setPickerSubject(e.target.value);
                       setPickerChapter('সব অধ্যায়');
                     }}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 font-medium outline-none focus:border-teal-500"
+                    className="w-full px-2 py-1.5 rounded-lg border border-slate-300 bg-white font-semibold outline-none focus:border-teal-500"
                   >
-                    <option value="সব বিষয়">সব বিষয় (Mixed / সমন্বিত)</option>
+                    <option value="সব বিষয়">সব বিষয় (সমন্বিত)</option>
                     {(pickerClass === 'সব শ্রেণি' ? subjectsList : (classSubjectsMap[pickerClass] || subjectsList)).map(sub => (
                       <option key={sub} value={sub}>{sub}</option>
                     ))}
@@ -2949,11 +3162,11 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
 
                 {/* Chapter */}
                 <div>
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1">অধ্যায় নির্বাচন</label>
+                  <label className="text-[10.5px] font-bold text-slate-500 block mb-0.5">অধ্যায়</label>
                   <select
                     value={pickerChapter}
                     onChange={(e) => setPickerChapter(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 font-medium outline-none focus:border-teal-500"
+                    className="w-full px-2 py-1.5 rounded-lg border border-slate-300 bg-white font-semibold outline-none focus:border-teal-500"
                   >
                     <option value="সব অধ্যায়">সব অধ্যায়</option>
                     {pickerSubject !== 'সব বিষয়' && getChaptersForClassAndSubject(pickerClass, pickerSubject)?.map(ch => (
@@ -2964,32 +3177,121 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
 
                 {/* Type */}
                 <div>
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1">প্রশ্নের ধরণ</label>
+                  <label className="text-[10.5px] font-bold text-slate-500 block mb-0.5">প্রশ্নের ধরণ</label>
                   <select
                     value={pickerType}
                     onChange={(e) => setPickerType(e.target.value as any)}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 font-medium outline-none focus:border-teal-500"
+                    className="w-full px-2 py-1.5 rounded-lg border border-slate-300 bg-white font-semibold outline-none focus:border-teal-500"
                   >
-                    <option value="all">সব ধরণ (MCQ, Short, CQ)</option>
+                    <option value="all">সব ধরণ (MCQ + CQ + Short)</option>
                     <option value="mcq">বহুনির্বাচনী (MCQ)</option>
-                    <option value="short">সংক্ষিপ্ত / গ্রামার / কম্পোজিশন</option>
+                    <option value="short">সংক্ষিপ্ত / গ্রামার</option>
                     <option value="cq">সৃজনশীল (CQ)</option>
                   </select>
                 </div>
 
-                {/* Search */}
+                {/* Board Filter */}
                 <div>
-                  <label className="text-[11px] font-bold text-slate-500 block mb-1">কীওয়ার্ড সার্চ</label>
-                  <div className="relative">
+                  <label className="text-[10.5px] font-bold text-slate-500 block mb-0.5">শিক্ষা বোর্ড ফিল্টার</label>
+                  <select
+                    value={pickerBoardFilter}
+                    onChange={(e) => setPickerBoardFilter(e.target.value)}
+                    className="w-full px-2 py-1.5 rounded-lg border border-slate-300 bg-white font-semibold outline-none focus:border-teal-500"
+                  >
+                    {[
+                      'সব বোর্ড',
+                      'ঢাকা বোর্ড',
+                      'রাজশাহী বোর্ড',
+                      'কুমিল্লা বোর্ড',
+                      'চট্টগ্রাম বোর্ড',
+                      'যশোর বোর্ড',
+                      'দিনাজপুর বোর্ড',
+                      'সিলেট বোর্ড',
+                      'বরিশাল বোর্ড',
+                      'ময়মনসিংহ বোর্ড',
+                    ].map(b => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Top School / College Filter */}
+                <div>
+                  <label className="text-[10.5px] font-bold text-slate-500 block mb-0.5">শীর্ষ স্কুল/কলেজ</label>
+                  <select
+                    value={pickerSchoolFilter}
+                    onChange={(e) => setPickerSchoolFilter(e.target.value)}
+                    className="w-full px-2 py-1.5 rounded-lg border border-slate-300 bg-white font-semibold outline-none focus:border-teal-500"
+                  >
+                    {[
+                      'সব প্রতিষ্ঠান',
+                      'ক্যাডেট কলেজ',
+                      'রাজউক উত্তরা মডেল কলেজ',
+                      'ভিকারুননিসা নূন স্কুল এন্ড কলেজ',
+                      'আইডিয়াল স্কুল এন্ড কলেজ',
+                      'হলি ক্রস কলেজ',
+                      'আদমজী ক্যান্টনমেন্ট',
+                    ].map(sc => (
+                      <option key={sc} value={sc}>{sc}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Second Filter Row: ProshnoLab Special Filter Pills + Keyword Search + Batch Select */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-200/80">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-slate-700 mr-1">স্পেশাল ফিল্টার:</span>
+                  {[
+                    { id: 'all', label: 'সব প্রশ্ন' },
+                    { id: 'repeated_board', label: '⭐ রিপিটেড বোর্ড প্রশ্ন' },
+                    { id: 'math', label: '📐 গাণিতিক সমস্যা' },
+                    { id: 'theory', label: '📖 তত্ত্বীয় প্রশ্ন' },
+                    { id: 'বহুপদী', label: '🔢 বহুপদী (i, ii, iii)' },
+                  ].map(sf => (
+                    <button
+                      key={sf.id}
+                      type="button"
+                      onClick={() => setPickerSpecialFilter(sf.id as any)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition border ${
+                        pickerSpecialFilter === sf.id
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {sf.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-end">
+                  <div className="relative w-48">
                     <input
                       type="text"
                       value={pickerSearch}
                       onChange={(e) => setPickerSearch(e.target.value)}
-                      placeholder="প্রশ্ন বা বোর্ড খুঁজুন..."
-                      className="w-full pl-7 pr-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 font-medium outline-none focus:border-teal-500"
+                      placeholder="প্রশ্ন বা টপিক খুঁজুন..."
+                      className="w-full pl-7 pr-2.5 py-1 rounded-lg border border-slate-300 bg-white font-medium outline-none focus:border-teal-500 text-xs"
                     />
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-2" />
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1.5" />
                   </div>
+
+                  {/* Batch Add 10 Questions Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const unadded = filteredPickerQuestions.filter(q => !isQuestionAdded(q.id)).slice(0, 10);
+                      if (unadded.length === 0) {
+                        showNotificationMsg('এই ফিল্টারের সকল প্রশ্ন ইতোমধ্যে যুক্ত করা হয়েছে!');
+                        return;
+                      }
+                      unadded.forEach(q => handleAddQuestionToPaper(q));
+                      showNotificationMsg(`✅ এক ক্লিকে ${toBengaliNumber(unadded.length)}টি প্রশ্ন প্রশ্নপত্রে যুক্ত হয়েছে!`);
+                    }}
+                    className="px-3 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold text-[11px] cursor-pointer transition shadow-2xs whitespace-nowrap"
+                  >
+                    + ১০টি প্রশ্ন একসাথে নিন
+                  </button>
                 </div>
               </div>
 
@@ -3002,107 +3304,125 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
                   <select
                     value={pickerGrammarTopic}
                     onChange={(e) => setPickerGrammarTopic(e.target.value)}
-                    className="flex-1 px-3 py-1.5 text-xs font-bold rounded-lg border border-blue-300 bg-white text-blue-950 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="flex-1 px-3 py-1 text-xs font-bold rounded-lg border border-blue-300 bg-white text-blue-950 outline-none"
                   >
                     {englishGrammarTopics.map(gt => (
                       <option key={gt} value={gt}>{gt}</option>
                     ))}
                   </select>
-                  {pickerGrammarTopic !== 'সব গ্রামার টপিক' && (
-                    <button
-                      type="button"
-                      onClick={() => setPickerGrammarTopic('সব গ্রামার টপিক')}
-                      className="text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2 py-1 rounded-lg cursor-pointer whitespace-nowrap"
-                    >
-                      ফিল্টার রিসেট ✕
-                    </button>
-                  )}
                 </div>
               )}
             </div>
 
             {/* List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 divide-y divide-slate-100">
-              <div className="text-xs text-slate-500 pb-1">
-                পাওয়া গেছে: <strong>{toBengaliNumber(filteredPickerQuestions.length)}টি</strong> প্রশ্ন
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-slate-50/50">
+              <div className="flex items-center justify-between text-xs text-slate-600 pb-1">
+                <span>পাওয়া গেছে: <strong>{toBengaliNumber(filteredPickerQuestions.length)}টি</strong> মানসম্মত প্রশ্ন</span>
+                <span className="text-[11px] text-emerald-700 font-semibold">সঠিক উত্তর সবুজ রঙে চিহ্নিত</span>
               </div>
 
-              {filteredPickerQuestions.slice(0, drawerDisplayLimit).map((q) => {
+              {filteredPickerQuestions.slice(0, drawerDisplayLimit).map((q, qIdx) => {
                 const added = isQuestionAdded(q.id);
+                const isExpOpen = !!expandedExplanations[q.id];
                 return (
-                  <div key={q.id} className="pt-2.5 flex items-start justify-between gap-4">
-                    <div className="space-y-1 min-w-0 flex-1">
+                  <div
+                    key={q.id}
+                    className={`p-3.5 rounded-2xl border-2 transition flex items-start justify-between gap-4 bg-white ${
+                      added ? 'border-emerald-500 bg-emerald-50/20 shadow-xs' : 'border-slate-200/90 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="space-y-1.5 min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-slate-500">#{toBengaliNumber(qIdx + 1)}</span>
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                           q.type === 'mcq' ? 'bg-emerald-100 text-emerald-800' :
                           q.type === 'short' ? 'bg-teal-100 text-teal-800' :
                           'bg-purple-100 text-purple-800'
                         }`}>
-                          {q.type === 'mcq' ? 'MCQ (১)' : q.type === 'short' ? 'সংক্ষিপ্ত / আইটেম' : 'CQ (১০)'}
+                          {q.type === 'mcq' ? 'MCQ' : q.type === 'short' ? 'সংক্ষিপ্ত / আইটেম' : 'সৃজনশীল (CQ)'}
                         </span>
                         <span className="text-xs font-semibold text-slate-700">{q.subject} • {q.chapter}</span>
-                        {q.grammarTopic && (
-                          <span className="text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-bold">
-                            {q.grammarTopic}
-                          </span>
-                        )}
-                        {q.marksDistribution && (
-                          <span className="text-[10px] text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded font-mono font-bold">
-                            মান: {q.marksDistribution}
-                          </span>
-                        )}
                         {q.boardInfo && (
-                          <span className="text-[10px] text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded font-medium">
-                            {q.boardInfo}
+                          <span className="text-[10.5px] text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md font-bold">
+                            🏛️ {q.boardInfo}
+                          </span>
+                        )}
+                        {q.importance === 'very_high' && (
+                          <span className="text-[10px] text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md font-bold">
+                            🔥 ১০০% কমন উপযোগী
                           </span>
                         )}
                       </div>
 
-                      {/* Clues box for grammar if present */}
-                      {(q as ShortQuestion).cluesBox && (q as ShortQuestion).cluesBox!.length > 0 && (
-                        <div className="p-1.5 bg-slate-50 border border-dashed border-slate-300 rounded text-[11px] font-mono text-slate-700 flex flex-wrap gap-1">
-                          <span className="font-bold text-slate-500 font-sans">[Clues]:</span>
-                          {(q as ShortQuestion).cluesBox!.slice(0, 6).join(' | ')}
-                          {(q as ShortQuestion).cluesBox!.length > 6 ? ' ...' : ''}
-                        </div>
-                      )}
-
-                      <p className="text-xs md:text-sm text-slate-900 font-medium leading-snug line-clamp-3">
+                      <p className="text-xs md:text-sm text-slate-900 font-semibold leading-snug">
                         {q.type === 'cq' ? q.stimulus : q.question}
                       </p>
 
                       {q.type === 'mcq' && (
-                        <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
-                          {q.options.map((opt, i) => (
-                            <span key={i} className="bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200">
-                              {['(ক)', '(খ)', '(গ)', '(ঘ)'][i]} {opt}
-                            </span>
-                          ))}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
+                          {q.options.map((opt, i) => {
+                            const isCorrect = q.correctOption === i;
+                            return (
+                              <span
+                                key={i}
+                                className={`px-2 py-1 rounded-lg border flex items-center gap-1.5 ${
+                                  isCorrect
+                                    ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-bold'
+                                    : 'bg-slate-50 border-slate-200 text-slate-700'
+                                }`}
+                              >
+                                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                  isCorrect ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-400 text-slate-700'
+                                }`}>
+                                  {['ক', 'খ', 'গ', 'ঘ'][i]}
+                                </span>
+                                <span className="truncate">{opt}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {q.type === 'mcq' && isExpOpen && (
+                        <div className="mt-2 p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-slate-800">
+                          <strong className="text-amber-900">ব্যাখ্যা ও সমাধান:</strong> সঠিক উত্তর অপশন ({['ক', 'খ', 'গ', 'ঘ'][q.correctOption]}) — <strong>{q.options[q.correctOption]}</strong>। অধ্যয়ন নোট: {q.chapter} অধ্যায়ের বোর্ড স্ট্যান্ডার্ড প্রশ্ন।
                         </div>
                       )}
                     </div>
 
-                    <button
-                      onClick={() => handleAddQuestionToPaper(q)}
-                      disabled={added}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shrink-0 cursor-pointer flex items-center gap-1 ${
-                        added
-                          ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
-                      }`}
-                    >
-                      {added ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>যুক্ত আছে</span>
-                        </>
-                      ) : (
-                        <>
-                          <PlusCircle className="w-3.5 h-3.5" />
-                          <span>+ যোগ করুন</span>
-                        </>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleAddQuestionToPaper(q)}
+                        disabled={added}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                          added
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 cursor-default'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                        }`}
+                      >
+                        {added ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>যুক্ত করা হয়েছে</span>
+                          </>
+                        ) : (
+                          <>
+                            <PlusCircle className="w-3.5 h-3.5" />
+                            <span>+ প্রশ্নটি নিন</span>
+                          </>
+                        )}
+                      </button>
+
+                      {q.type === 'mcq' && (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedExplanations(prev => ({ ...prev, [q.id]: !prev[q.id] }))}
+                          className="text-[11px] font-semibold text-teal-700 hover:underline cursor-pointer"
+                        >
+                          {isExpOpen ? 'ব্যাখ্যা লুকান ▲' : 'ব্যাখ্যা দেখুন ▼'}
+                        </button>
                       )}
-                    </button>
+                    </div>
                   </div>
                 );
               })}
@@ -3122,15 +3442,15 @@ export const QuestionPaperMakerView: React.FC<QuestionPaperMakerViewProps> = ({ 
             </div>
 
             {/* Footer */}
-            <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+            <div className="p-3 bg-white border-t border-slate-200 flex items-center justify-between">
               <span className="text-xs text-slate-500">
-                টিপস: প্রশ্নটিতে ক্লিক করলেই সেটি তার ধরণ অনুযায়ী সঠিক বিভাগে স্বয়ংক্রিয়ভাবে বসে যাবে।
+                টিপস: প্রশ্নগুলো পছন্দ করার পর ডানদিকের প্রিভিউ মোডে গিয়ে ৪-পৃষ্ঠা বুকলেট বা পোর্ট্রেট A4 ফরম্যাটে প্রিন্ট ও পিডিএফ ডাউনলোড করুন।
               </span>
               <button
                 onClick={() => setShowAddDrawer(false)}
-                className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-lg text-xs cursor-pointer"
+                className="px-5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer"
               >
-                বন্ধ করুন
+                সম্পন্ন ও প্রিভিউ দেখুন →
               </button>
             </div>
           </div>

@@ -209,12 +209,12 @@ export async function exportElementsToPDF(
       const el = elements[i];
 
       const canvas = await html2canvas(el, {
-        scale: 2, // High resolution for crisp Bengali fonts
+        scale: 2.5, // Ultra-crisp resolution for Bengali & English print typography
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
         logging: false,
-        windowWidth: orientation === 'landscape' ? 1200 : 850,
+        windowWidth: orientation === 'landscape' ? 1200 : 900,
         onclone: (clonedDoc) => {
           // Wrap getComputedStyle inside the cloned iframe/document as well
           if (clonedDoc.defaultView) {
@@ -237,11 +237,23 @@ export async function exportElementsToPDF(
             .shadow-2xl, .shadow-xl, .shadow-lg, .shadow-md, .shadow-sm, .shadow-xs, .shadow-2xs {
               box-shadow: none !important;
             }
-            #booklet-sheet-1, #booklet-sheet-2, #printable-exam-paper, .booklet-print-sheet, .a4-preview-page {
+            #booklet-sheet-1, #booklet-sheet-2, .booklet-print-sheet {
               background-color: #ffffff !important;
               box-shadow: none !important;
               border: none !important;
               margin: 0 !important;
+              width: 1122px !important;
+              min-height: 793px !important;
+              box-sizing: border-box !important;
+            }
+            #printable-exam-paper, .a4-preview-page {
+              background-color: #ffffff !important;
+              box-shadow: none !important;
+              margin: 0 auto !important;
+            }
+            .mcq-question-item {
+              border-bottom: none !important;
+              text-decoration: none !important;
             }
             #official-certificate-sheet {
               background-color: #ffffff !important;
@@ -337,12 +349,29 @@ export async function exportElementsToPDF(
       const imgData = canvas.toDataURL('image/jpeg', 0.98);
       const contentHeightMm = (canvas.height * a4Width) / canvas.width;
 
-      // Single-page or landscape sheet (fits in one page)
-      if (orientation === 'landscape' || contentHeightMm <= a4Height * 1.1) {
+      // Single-page or landscape sheet (preserve exact aspect ratio without squashing/stretching)
+      if (orientation === 'landscape' || contentHeightMm <= a4Height * 1.08) {
         if (i > 0) {
           pdf.addPage(format, orientation);
         }
-        pdf.addImage(imgData, 'JPEG', 0, 0, a4Width, a4Height, undefined, 'FAST');
+        const imgRatio = canvas.width / canvas.height;
+        const pageRatio = a4Width / a4Height;
+        let renderWidth = a4Width;
+        let renderHeight = a4Height;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        if (imgRatio > pageRatio) {
+          renderWidth = a4Width;
+          renderHeight = a4Width / imgRatio;
+          offsetY = (a4Height - renderHeight) / 2;
+        } else {
+          renderHeight = a4Height;
+          renderWidth = a4Height * imgRatio;
+          offsetX = (a4Width - renderWidth) / 2;
+        }
+
+        pdf.addImage(imgData, 'JPEG', offsetX, offsetY, renderWidth, renderHeight, undefined, 'FAST');
       } else {
         // Multi-page portrait splitting for tall exam papers
         const pageCanvasHeight = (canvas.width * a4Height) / a4Width;

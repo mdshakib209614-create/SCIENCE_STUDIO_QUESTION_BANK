@@ -1,26 +1,31 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Printer, 
-  ArrowLeft, 
   BookOpen, 
-  Layers, 
   FoldHorizontal, 
   CheckCircle2, 
-  Info, 
-  HelpCircle,
   FileText,
   Sliders,
   Sparkles,
   ChevronDown,
   ChevronUp,
   Bookmark,
-  Save,
   Download,
   Image as ImageIcon,
   Upload,
-  Settings2,
   RotateCcw,
-  X
+  X,
+  Edit3,
+  Shuffle,
+  Monitor,
+  Bold,
+  Italic,
+  Underline,
+  AlignLeft,
+  AlignCenter,
+  Columns,
+  Palette,
+  Grid
 } from 'lucide-react';
 import { exportElementsToPDF } from '../utils/pdfExport';
 import { InstitutionProfile, QuestionItem, MCQQuestion, CQQuestion, ShortQuestion } from '../types';
@@ -60,6 +65,7 @@ interface LandscapeBookletPreviewProps {
   onWatermarkOpacityChange?: (opacity: number) => void;
   onWatermarkSizeChange?: (size: number) => void;
   onShowWatermarkChange?: (show: boolean) => void;
+  onShuffleQuestions?: () => void;
 }
 
 export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = ({
@@ -69,7 +75,6 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
   sectionKhQuestions,
   sectionGQuestions,
   showWatermark: initialShowWatermark,
-  watermarkText: initialWatermarkText,
   watermarkImage: initialWatermarkImage,
   watermarkOpacity: initialWatermarkOpacity = 0.07,
   watermarkSize: initialWatermarkSize = 160,
@@ -81,12 +86,13 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
   onWatermarkOpacityChange,
   onWatermarkSizeChange,
   onShowWatermarkChange,
+  onShuffleQuestions,
 }) => {
   // Paper size: A4 (Standard Desktop Printer) vs A3 (Commercial Press Standard)
   const [paperSize, setPaperSize] = useState<'A4' | 'A3'>('A4');
 
-  // Border style: 'solid' (Standard Exam Board Frame) vs 'double' (Classic Double Frame) vs 'thin'
-  const [borderStyle, setBorderStyle] = useState<'solid' | 'double' | 'thin'>('solid');
+  // Border style: 'solid' (Standard Exam Board Frame) vs 'double' (Classic Double Frame) vs 'thin' vs 'none'
+  const [borderStyle, setBorderStyle] = useState<'solid' | 'double' | 'thin' | 'none'>('solid');
 
   // Imposition mode: 
   // 'p1_p2' (Natural sequential screen reading: Sheet 1 = [P1 | P2], Sheet 2 = [P3 | P4])
@@ -94,8 +100,38 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
   // 'p1_p4' (Left = Page 1, Right = Page 4)
   const [orderMode, setOrderMode] = useState<'p4_p1' | 'p1_p4' | 'p1_p2'>('p1_p2');
 
-  // Font density / spacing: 'normal' (standard balanced full-page fit), 'spacious' (for fewer questions to avoid empty space), 'compact' (dense 100-mark fit)
-  const [density, setDensity] = useState<'normal' | 'spacious' | 'compact'>('normal');
+  // Font density / spacing
+  const [density, setDensity] = useState<'normal' | 'spacious' | 'compact'>('compact');
+
+  // ProshnoLab & eProshnobank Advanced Live Paper Customization States
+  const isEnglishPaper = config.subject === 'ইংরেজি' || (config.pattern && config.pattern.startsWith('english_'));
+  const [mcqColumns, setMcqColumns] = useState<1 | 2>(isEnglishPaper ? 1 : 2);
+  const [optionStyle, setOptionStyle] = useState<'circle' | 'paren' | 'dot'>('circle');
+  const [numberStyle, setNumberStyle] = useState<'dot' | ' zero_dot' | 'paren'>('dot');
+  const [activeSet, setActiveSet] = useState<'ক' | 'খ' | 'গ' | 'ঘ'>('ক');
+  const [showSetCode, setShowSetCode] = useState<boolean>(true);
+  const [showSubjectCodeBox, setShowSubjectCodeBox] = useState<boolean>(true);
+  const [showMarksBox, setShowMarksBox] = useState<boolean>(false);
+  const [showStudentInfoBar, setShowStudentInfoBar] = useState<boolean>(false);
+  const [showBoardTag, setShowBoardTag] = useState<boolean>(true);
+  const [showTickAnswer, setShowTickAnswer] = useState<boolean>(false);
+  const [showExplanation, setShowExplanation] = useState<boolean>(false);
+  const [showMiniOmr, setShowMiniOmr] = useState<boolean>(false);
+  const [showTearOffSlip, setShowTearOffSlip] = useState<boolean>(false);
+  const [headerColoredBg, setHeaderColoredBg] = useState<boolean>(false);
+  const [headerBgColor, setHeaderBgColor] = useState<string>('#f0fdf4');
+  const [paperTextColor, setPaperTextColor] = useState<string>('#0f172a');
+  const [customFontSizePx, setCustomFontSizePx] = useState<number>(11);
+  const [customGapPx, setCustomGapPx] = useState<number>(4);
+  const [isInlineEditing, setIsInlineEditing] = useState<boolean>(false);
+  const [showCustomizationSidebar, setShowCustomizationSidebar] = useState<boolean>(true);
+  const [showSmartBoard, setShowSmartBoard] = useState<boolean>(false);
+  const [smartBoardIndex, setSmartBoardIndex] = useState<number>(0);
+  const [smartBoardReveal, setSmartBoardReveal] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMcqColumns(isEnglishPaper ? 1 : 2);
+  }, [isEnglishPaper]);
 
   // Local toggles
   const [showWatermark, setShowWatermark] = useState<boolean>(initialShowWatermark);
@@ -121,7 +157,7 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
     if (typeof initialWatermarkSize === 'number') setWatermarkSize(initialWatermarkSize);
   }, [initialWatermarkSize]);
 
-  const [showAnswerKey, setShowAnswerKey] = useState<boolean>(false);
+  const [showAnswerKey, setShowAnswerKey] = useState<boolean>(initialShowAnswerKey || false);
   const [showGuide, setShowGuide] = useState<boolean>(false);
   const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
 
@@ -172,20 +208,58 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
   };
 
   // Distribution of questions across the 4 pages:
-  // Dynamically balance questions so all pages are filled evenly without huge bottom gaps
-  const defaultMcqSplit = Math.max(1, Math.min(sectionKQuestions.length, Math.ceil(sectionKQuestions.length / 2) || 15));
+  const defaultMcqSplit = Math.max(1, Math.min(sectionKQuestions.length, Math.ceil(sectionKQuestions.length * 0.55) || 16));
   const defaultCqSplit = Math.max(1, Math.min(sectionGQuestions.length, Math.ceil(sectionGQuestions.length / 2) || 4));
 
   const [mcqPage1Count, setMcqPage1Count] = useState<number>(defaultMcqSplit);
   const [cqPage3Count, setCqPage3Count] = useState<number>(defaultCqSplit);
 
-  // Automatically update splits when questions change
-  React.useEffect(() => {
-    const newMcqSplit = Math.max(1, Math.min(sectionKQuestions.length, Math.ceil(sectionKQuestions.length / 2) || 15));
+  useEffect(() => {
+    const newMcqSplit = Math.max(1, Math.min(sectionKQuestions.length, Math.ceil(sectionKQuestions.length * 0.55) || 16));
     const newCqSplit = Math.max(1, Math.min(sectionGQuestions.length, Math.ceil(sectionGQuestions.length / 2) || 4));
     setMcqPage1Count(newMcqSplit);
     setCqPage3Count(newCqSplit);
   }, [sectionKQuestions.length, sectionGQuestions.length]);
+
+  const formatSerialNumber = (num: number, isEng = false) => {
+    const str = isEng ? String(num) : toBengaliNumber(num);
+    const padded = num < 10 ? (isEng ? `0${num}` : `০${str}`) : str;
+    if (numberStyle === ' zero_dot') return `${padded}.`;
+    if (numberStyle === 'paren') return `(${str})`;
+    return `${str}.`;
+  };
+
+  const renderOptionBadge = (optIdx: number, isCorrect: boolean) => {
+    const letters = isEnglishPaper ? ['a', 'b', 'c', 'd'] : ['ক', 'খ', 'গ', 'ঘ'];
+    const letter = letters[optIdx] || 'ক';
+    const highlight = showTickAnswer && isCorrect;
+
+    if (optionStyle === 'circle') {
+      return (
+        <span
+          className={`inline-flex items-center justify-center w-[15px] h-[15px] rounded-full text-[9.5px] font-bold mr-1 shrink-0 border ${
+            highlight
+              ? 'bg-slate-900 text-white border-slate-900'
+              : 'border-slate-700 text-slate-900 bg-transparent'
+          }`}
+        >
+          {letter}
+        </span>
+      );
+    }
+    if (optionStyle === 'dot') {
+      return (
+        <strong className={`mr-1 ${highlight ? 'underline font-black text-emerald-800' : ''}`}>
+          {letter}. {highlight ? '✓' : ''}
+        </strong>
+      );
+    }
+    return (
+      <strong className={`mr-1 ${highlight ? 'underline font-black text-emerald-800' : ''}`}>
+        ({letter}){highlight ? '✓' : ''}
+      </strong>
+    );
+  };
 
   // High-fidelity Question Content & Markdown Table Formatter
   const renderFormattedQuestionContent = (text: string) => {
@@ -251,16 +325,16 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
   const sectionKhMarks = useMemo(() => sectionKhQuestions.reduce((acc, q) => acc + (q.marks || 2), 0), [sectionKhQuestions]);
   const sectionGMarks = useMemo(() => sectionGQuestions.reduce((acc, q) => acc + (q.marks || 10), 0), [sectionGQuestions]);
   const totalCalculatedMarks = sectionKMarks + sectionKhMarks + sectionGMarks;
-  const isEnglishPaper = config.subject === 'ইংরেজি' || (config.pattern && config.pattern.startsWith('english_'));
 
   // Border frame classes for standard exam question papers
   const borderClass = {
     solid: 'border-2 border-slate-900',
     double: 'border-4 border-double border-slate-900',
-    thin: 'border border-slate-800'
+    thin: 'border border-slate-800',
+    none: 'border border-transparent'
   }[borderStyle];
 
-  // Print Booklet handler (Injects dynamic landscape print rules)
+  // Print Booklet handler
   const handlePrint = () => {
     const styleId = 'dynamic-booklet-landscape-print-style';
     let styleTag = document.getElementById(styleId);
@@ -312,44 +386,44 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
     window.print();
   };
 
-  // Typography density classes - calibrated so content comfortably fills the page
+  // Typography density classes
   const fontDensityClasses = {
     compact: {
-      bodyText: 'text-[11px] leading-snug',
-      heading: 'text-xs font-bold',
-      mcqText: 'text-[11px] font-medium leading-snug',
-      optionsText: 'text-[10.5px]',
-      cqText: 'text-[11px] leading-snug',
-      stimulusText: 'text-[10.5px] leading-snug p-2',
-      spacing: 'space-y-1.5',
-      headerPadding: 'pb-1 mb-1.5',
+      bodyText: 'text-[10.5px] leading-snug',
+      heading: 'text-[11.5px] font-bold',
+      mcqText: 'text-[10.5px] font-medium leading-snug',
+      optionsText: 'text-[10px]',
+      cqText: 'text-[10.5px] leading-snug',
+      stimulusText: 'text-[10.5px] leading-snug p-1.5',
+      spacing: 'space-y-1',
+      headerPadding: 'pb-1 mb-1',
       institutionTitle: 'text-base font-black',
     },
     normal: {
-      bodyText: 'text-[12px] leading-normal',
-      heading: 'text-[13px] font-bold',
-      mcqText: 'text-[12px] font-medium leading-normal',
-      optionsText: 'text-[11.5px]',
-      cqText: 'text-[11.5px] leading-relaxed',
-      stimulusText: 'text-[11.5px] leading-relaxed p-2.5',
-      spacing: 'space-y-2.5',
-      headerPadding: 'pb-1.5 mb-2',
+      bodyText: 'text-[11.5px] leading-normal',
+      heading: 'text-[12.5px] font-bold',
+      mcqText: 'text-[11.5px] font-medium leading-normal',
+      optionsText: 'text-[11px]',
+      cqText: 'text-[11px] leading-relaxed',
+      stimulusText: 'text-[11px] leading-relaxed p-2',
+      spacing: 'space-y-1.5',
+      headerPadding: 'pb-1.5 mb-1.5',
       institutionTitle: 'text-lg font-black',
     },
     spacious: {
-      bodyText: 'text-[13px] leading-relaxed',
+      bodyText: 'text-[12.5px] leading-relaxed',
       heading: 'text-sm font-bold',
-      mcqText: 'text-[13px] font-medium leading-relaxed',
-      optionsText: 'text-[12px]',
-      cqText: 'text-[12.5px] leading-relaxed',
-      stimulusText: 'text-[12px] leading-relaxed p-3',
-      spacing: 'space-y-3.5',
-      headerPadding: 'pb-2 mb-2.5',
+      mcqText: 'text-[12.5px] font-medium leading-relaxed',
+      optionsText: 'text-[11.5px]',
+      cqText: 'text-[12px] leading-relaxed',
+      stimulusText: 'text-[11.5px] leading-relaxed p-2.5',
+      spacing: 'space-y-2.5',
+      headerPadding: 'pb-2 mb-2',
       institutionTitle: 'text-xl font-black',
     },
   }[density];
 
-  // Picture Watermark Component (লগো ওয়াটার মার্ক)
+  // Picture Watermark Component
   const WatermarkOverlay = () => {
     if (!showWatermark || !watermarkImage) return null;
     return (
@@ -368,36 +442,196 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
     );
   };
 
+  // Reusable MCQ / Item Renderer (Strictly ZERO underlines under MCQs!)
+  const renderMcqQuestionBlock = (q: QuestionItem, serialNum: number) => {
+    if (q.type === 'short') {
+      return (
+        <div
+          key={q.id || serialNum}
+          className="mcq-question-item text-slate-950 break-inside-avoid pb-1"
+          style={{ marginBottom: `${customGapPx}px`, fontSize: `${customFontSizePx}px`, color: paperTextColor }}
+        >
+          <div className="space-y-0.5">
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-sans leading-snug" contentEditable={isInlineEditing} suppressContentEditableWarning>
+                <strong className="font-serif">{q.itemNumber ? `${q.itemNumber}. ` : `${formatSerialNumber(serialNum, true)} `}</strong>
+                <span>{q.question.split('\n')[0]}</span>
+              </p>
+              {q.marksDistribution && (
+                <span className="font-mono text-[9.5px] text-slate-700 shrink-0 font-bold">
+                  {q.marksDistribution}
+                </span>
+              )}
+            </div>
+            {(q as any).cluesBox && (q as any).cluesBox.length > 0 && (
+              <div className="p-1 border border-slate-400 rounded text-[9px] font-mono text-center my-0.5 bg-slate-50/50">
+                [ {(q as any).cluesBox.join(' | ')} ]
+              </div>
+            )}
+            {q.question.includes('\n') && (
+              <div
+                className="text-[10px] font-serif leading-relaxed text-slate-900 pl-2.5"
+                contentEditable={isInlineEditing}
+                suppressContentEditableWarning
+              >
+                {renderFormattedQuestionContent(q.question.substring(q.question.indexOf('\n') + 1).trim())}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (q.type === 'mcq') {
+      const optionsGridClass =
+        mcqColumns === 2
+          ? 'grid grid-cols-2 gap-x-1.5 gap-y-0.5 pl-2 pt-0.5'
+          : 'grid grid-cols-2 sm:grid-cols-4 gap-x-2 gap-y-0.5 pl-2 pt-0.5';
+
+      return (
+        <div
+          key={q.id || serialNum}
+          className="mcq-question-item break-inside-avoid"
+          style={{ marginBottom: `${customGapPx}px`, fontSize: `${customFontSizePx}px`, color: paperTextColor }}
+        >
+          <div className="flex items-start justify-between gap-1">
+            <p className="font-sans leading-snug font-medium" contentEditable={isInlineEditing} suppressContentEditableWarning>
+              <strong className="font-serif mr-1">{formatSerialNumber(serialNum, isEnglishPaper)}</strong>
+              <span>{q.question}</span>
+              {showBoardTag && q.boardInfo && (
+                <span className="ml-1 text-[8.5px] font-normal text-slate-600 font-sans">
+                  [{q.boardInfo}]
+                </span>
+              )}
+            </p>
+          </div>
+
+          <div className={`${optionsGridClass} font-sans text-slate-900`} style={{ fontSize: `${Math.max(9, customFontSizePx - 0.5)}px` }}>
+            {q.options.map((opt, oIdx) => (
+              <span
+                key={oIdx}
+                className="inline-flex items-center leading-tight"
+                contentEditable={isInlineEditing}
+                suppressContentEditableWarning
+              >
+                {renderOptionBadge(oIdx, q.correctOption === oIdx)}
+                <span>{opt}</span>
+              </span>
+            ))}
+          </div>
+
+          {showExplanation && (
+            <div className="mt-1 ml-2 p-1 rounded border border-slate-300 bg-slate-50/80 text-[9px] text-slate-700 font-sans leading-snug">
+              <strong>ব্যাখ্যা:</strong> সঠিক উত্তর ({['ক', 'খ', 'গ', 'ঘ'][q.correctOption]}) {q.options[q.correctOption]}। {(q as any).explanation || ''}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  // Subject Code Digit Boxes Helper (e.g., [১][৭][৪])
+  const subjectCodeDigits = useMemo(() => {
+    const raw = (config.subjectCode || '১৭৪').trim();
+    return raw.split('');
+  }, [config.subjectCode]);
+
   // -------------------------------------------------------------
   // PAGE 1: Front Cover / Header & 'ক' বিভাগ (MCQ Part 1)
   // -------------------------------------------------------------
   const renderPage1 = () => (
-    <div className={`relative flex flex-col h-full justify-between p-3 sm:p-4 text-slate-950 font-serif ${borderClass} bg-white box-border`}>
+    <div
+      className={`relative flex flex-col h-full justify-between p-3 text-slate-950 font-serif ${borderClass} bg-white box-border`}
+      style={{ color: paperTextColor }}
+    >
       <WatermarkOverlay />
       
       <div className="relative z-10 flex-1 flex flex-col justify-start">
-        {/* Institution & Exam Header */}
-        <div className={`text-center border-b-2 border-slate-900 ${fontDensityClasses.headerPadding}`}>
-          <h1 className={`${fontDensityClasses.institutionTitle} tracking-tight text-slate-950 leading-tight`}>
-            {config.academyName}
-          </h1>
-          {institution.village && (
-            <p className="text-[10px] text-slate-600 font-sans">
-              {institution.village}, {institution.upazila}, {institution.district} {institution.eiin ? `| EIIN: ${institution.eiin}` : ''}
-            </p>
-          )}
-          
-          <div className="inline-block px-3 py-0.5 font-bold text-xs text-slate-950 my-0.5 font-sans">
-            {config.examTitle}
+        {/* Institution & Exam Header (Authentic Board & ProshnoLab/eProshnobank Coaching Standard) */}
+        <div
+          className={`text-center border-b-2 border-slate-900 ${fontDensityClasses.headerPadding} rounded-t`}
+          style={headerColoredBg ? { backgroundColor: headerBgColor, padding: '6px 8px' } : undefined}
+        >
+          {/* Top Row: Marks Box (Left) | Academy Title (Center) | Set & Subject Code Boxes (Right) */}
+          <div className="flex items-start justify-between gap-2">
+            {/* Left: Optional Obtained Marks Box */}
+            {showMarksBox ? (
+              <div className="border border-slate-800 px-1.5 py-0.5 text-[9px] font-sans font-bold text-center shrink-0 bg-white">
+                <div className="border-b border-slate-400 pb-0.5">প্রাপ্ত নম্বর</div>
+                <div className="h-3.5" />
+              </div>
+            ) : (
+              <div className="w-10 shrink-0" />
+            )}
+
+            {/* Center: Institution Name & Address */}
+            <div className="flex-1 text-center">
+              <h1
+                className={`${fontDensityClasses.institutionTitle} tracking-tight text-slate-950 leading-tight`}
+                contentEditable={isInlineEditing}
+                suppressContentEditableWarning
+              >
+                {config.academyName}
+              </h1>
+              {institution.village && (
+                <p className="text-[9.5px] text-slate-600 font-sans" contentEditable={isInlineEditing} suppressContentEditableWarning>
+                  {institution.village}, {institution.upazila}, {institution.district} {institution.eiin ? `| EIIN: ${institution.eiin}` : ''}
+                </p>
+              )}
+              <div
+                className="inline-block px-2.5 py-0.5 font-bold text-[11.5px] text-slate-950 font-sans"
+                contentEditable={isInlineEditing}
+                suppressContentEditableWarning
+              >
+                {config.examTitle}
+              </div>
+            </div>
+
+            {/* Right: Set Code & Subject Code Digit Boxes */}
+            <div className="flex flex-col items-end gap-1 shrink-0 font-sans">
+              {showSetCode && (
+                <div className="flex items-center gap-1 text-[9.5px] font-bold">
+                  <span>সেট:</span>
+                  <span className="inline-flex items-center justify-center w-4 h-4 border border-slate-900 font-black bg-white">
+                    {activeSet}
+                  </span>
+                </div>
+              )}
+              {showSubjectCodeBox && config.subjectCode && (
+                <div className="flex items-center gap-0.5 text-[9px] font-bold">
+                  <span className="mr-0.5">কোড:</span>
+                  {subjectCodeDigits.map((d, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center justify-center w-3.5 h-4 border border-slate-800 font-mono font-bold bg-white text-[9.5px]"
+                    >
+                      {d}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="pt-1 flex items-center justify-between text-[11px] font-bold text-slate-900 px-0.5 border-t border-slate-400 font-sans">
-            <div className="text-left">
-              <span>বিষয়: {config.subject} {config.subjectCode ? `(কোড: ${config.subjectCode})` : ''}</span>
+          {/* Student Info Bar (Name, Roll, Section, Date) */}
+          {showStudentInfoBar && (
+            <div className="mt-1 pt-1 border-t border-slate-400 flex items-center justify-between gap-2 text-[9.5px] font-sans font-semibold text-slate-800">
+              <span className="flex-1 text-left">শিক্ষার্থীর নাম: ....................................................</span>
+              <span>রোল: ...................</span>
+              <span>শাখা: ...............</span>
+            </div>
+          )}
+
+          {/* Meta Bar: Subject, Class, Time, Marks */}
+          <div className="pt-1 mt-0.5 flex items-center justify-between text-[10.5px] font-bold text-slate-900 px-0.5 border-t border-slate-400 font-sans">
+            <div className="text-left" contentEditable={isInlineEditing} suppressContentEditableWarning>
+              <span>বিষয়: {config.subject}</span>
               <span className="mx-1.5">|</span>
               <span>শ্রেণি: {config.className} {config.section ? `(${config.section})` : ''}</span>
             </div>
-            <div className="text-right">
+            <div className="text-right" contentEditable={isInlineEditing} suppressContentEditableWarning>
               <span>সময়: {config.duration}</span>
               <span className="mx-1.5">|</span>
               <span>পূর্ণমান: {config.totalMarks}</span>
@@ -405,7 +639,11 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
           </div>
 
           {config.instructions && (
-            <div className="text-[9.5px] text-slate-700 italic pt-0.5 border-t border-dashed border-slate-300 text-center font-sans">
+            <div
+              className="text-[9px] text-slate-700 italic pt-0.5 border-t border-dashed border-slate-300 text-center font-sans"
+              contentEditable={isInlineEditing}
+              suppressContentEditableWarning
+            >
               [{config.instructions}]
             </div>
           )}
@@ -413,71 +651,38 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
 
         {/* 'ক' বিভাগ : বহুনির্বাচনী প্রশ্ন (Part 1) or Part A: Grammar */}
         {page1Mcqs.length > 0 && (
-          <div className={`flex-1 flex flex-col ${fontDensityClasses.spacing} mt-1.5`}>
-            <div className="text-center border-b border-slate-800 pb-0.5 mb-1">
-              <h2 className={`font-bold uppercase tracking-wider text-slate-900 ${fontDensityClasses.heading}`}>
+          <div className="flex-1 flex flex-col mt-1">
+            <div className="text-center border-b border-slate-800 pb-0.5 mb-1.5">
+              <h2
+                className={`font-bold uppercase tracking-wider text-slate-900 ${fontDensityClasses.heading}`}
+                contentEditable={isInlineEditing}
+                suppressContentEditableWarning
+              >
                 {isEnglishPaper
                   ? `Part A : Grammar [Full Marks: ${sectionKMarks}]`
                   : `'ক' বিভাগ : বহুনির্বাচনী প্রশ্ন ${sectionKMarks > 0 ? `[মান: ${toBengaliNumber(sectionKMarks)}]` : ''}`}
               </h2>
-              <p className="text-[9.5px] text-slate-600 italic">
+              <p className="text-[9px] text-slate-600 italic">
                 {isEnglishPaper
                   ? '[Answer all the questions. Figures in the right margin indicate full marks.]'
                   : '[সঠিক উত্তরের বৃত্তটি ভরাট করো। প্রতিটি প্রশ্নের মান ১।]'}
               </p>
             </div>
 
-            {/* Questions list */}
-            <div className={`flex-1 flex flex-col justify-start ${fontDensityClasses.spacing}`}>
-              {page1Mcqs.map((q, idx) => (
-                <div key={q.id || idx} className="text-slate-950 break-inside-avoid border-b border-slate-200/50 pb-1.5 last:border-b-0">
-                  {q.type === 'short' ? (
-                    <div className="space-y-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className={`${fontDensityClasses.mcqText} font-sans leading-snug`}>
-                          <strong className="font-serif">{q.itemNumber ? `${q.itemNumber}. ` : `${idx + 1}. `}</strong>
-                          <span>{q.question.split('\n')[0]}</span>
-                        </p>
-                        {q.marksDistribution && (
-                          <span className="font-mono text-[10px] text-slate-700 shrink-0 font-bold">
-                            {q.marksDistribution}
-                          </span>
-                        )}
-                      </div>
-                      {(q as any).cluesBox && (q as any).cluesBox.length > 0 && (
-                        <div className="p-1 border border-slate-400 rounded text-[9.5px] font-mono text-center my-0.5 bg-slate-50/50">
-                          [ {(q as any).cluesBox.join(' | ')} ]
-                        </div>
-                      )}
-                      {q.question.includes('\n') && (
-                        <div className="text-[10px] font-serif leading-relaxed text-slate-900 pl-3">
-                          {renderFormattedQuestionContent(q.question.substring(q.question.indexOf('\n') + 1).trim())}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <p className={`${fontDensityClasses.mcqText} font-sans`}>
-                        <strong className="font-serif">{toBengaliNumber(idx + 1)}. </strong>
-                        {q.type === 'mcq' ? q.question : ''}
-                      </p>
-                      {q.type === 'mcq' && (
-                        <div className={`grid grid-cols-2 sm:grid-cols-4 gap-x-2 gap-y-0.5 pl-2 pt-0.5 ${fontDensityClasses.optionsText} text-slate-800 font-sans`}>
-                          <span>(ক) {q.options[0]}</span>
-                          <span>(খ) {q.options[1]}</span>
-                          <span>(গ) {q.options[2]}</span>
-                          <span>(ঘ) {q.options[3]}</span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              ))}
+            {/* Questions list - Supports 2-Column Coaching/Board Split or 1-Column */}
+            <div
+              className={
+                mcqColumns === 2 && !isEnglishPaper
+                  ? 'grid grid-cols-2 gap-x-3 items-start'
+                  : 'flex-1 flex flex-col justify-start'
+              }
+            >
+              {page1Mcqs.map((q, idx) => renderMcqQuestionBlock(q, idx + 1))}
             </div>
           </div>
         )}
 
-        {/* If completely blank paper, show a friendly prompt on screen (hidden during print) */}
+        {/* If completely blank paper, show a friendly prompt on screen */}
         {sectionKQuestions.length === 0 && sectionKhQuestions.length === 0 && sectionGQuestions.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 rounded-xl my-4 text-center print:hidden bg-slate-50/70">
             <p className="text-sm font-bold text-slate-800">✨ সম্পূর্ণ ব্ল্যাঙ্ক প্রশ্নপত্র প্রস্তুত</p>
@@ -495,8 +700,8 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
         )}
       </div>
 
-      {/* Page 1 Footer - ONLY PAGE NUMBER */}
-      <div className="relative z-10 pt-1.5 mt-auto border-t border-slate-300 text-center font-bold text-xs text-slate-900 font-sans tracking-widest">
+      {/* Page 1 Footer */}
+      <div className="relative z-10 pt-1 mt-auto border-t border-slate-300 text-center font-bold text-[10.5px] text-slate-900 font-sans tracking-widest">
         — পৃষ্ঠা ১ —
       </div>
     </div>
@@ -506,97 +711,64 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
   // PAGE 2: Inside Left / 'ক' বিভাগ (MCQ Part 2) & 'খ' বিভাগ (Short)
   // -------------------------------------------------------------
   const renderPage2 = () => (
-    <div className={`relative flex flex-col h-full justify-between p-3 sm:p-4 text-slate-950 font-serif ${borderClass} bg-white box-border`}>
+    <div
+      className={`relative flex flex-col h-full justify-between p-3 text-slate-950 font-serif ${borderClass} bg-white box-border`}
+      style={{ color: paperTextColor }}
+    >
       <WatermarkOverlay />
 
       <div className="relative z-10 flex-1 flex flex-col justify-start">
         {/* Subtle Top Header */}
-        <div className="flex items-center justify-between text-[10px] font-bold text-slate-700 border-b border-slate-300 pb-1 mb-2 font-sans">
-          <span>{config.subject}</span>
-          <span>{config.examTitle}</span>
+        <div className="flex items-center justify-between text-[9.5px] font-bold text-slate-700 border-b border-slate-300 pb-0.5 mb-1.5 font-sans">
+          <span>{config.subject} ({config.className})</span>
+          <span>সেট: {activeSet} | {config.examTitle}</span>
         </div>
 
-        {/* 'ক' বিভাগ : বহুনির্বাচনী প্রশ্ন (Part 2) or Part A: Grammar continued */}
+        {/* 'ক' বিভাগ : বহুনির্বাচনী প্রশ্ন (Part 2) */}
         {page2Mcqs.length > 0 && (
-          <div className={`${fontDensityClasses.spacing} mb-2.5`}>
-            <div className="text-center border-b border-slate-800 pb-0.5 mb-1">
+          <div className="mb-2">
+            <div className="text-center border-b border-slate-800 pb-0.5 mb-1.5">
               <h2 className={`font-bold uppercase tracking-wider text-slate-900 ${fontDensityClasses.heading}`}>
                 {isEnglishPaper ? 'Part A : Grammar (Continued)' : '\'ক\' বিভাগ : বহুনির্বাচনী প্রশ্ন (অবশিষ্টাংশ)'}
               </h2>
             </div>
 
-            <div className={fontDensityClasses.spacing}>
-              {page2Mcqs.map((q, idx) => {
-                const serialNum = mcqPage1Count + idx + 1;
-                return (
-                  <div key={q.id || idx} className="text-slate-950 break-inside-avoid border-b border-slate-200/50 pb-1.5 last:border-b-0">
-                    {q.type === 'short' ? (
-                      <div className="space-y-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className={`${fontDensityClasses.mcqText} font-sans leading-snug`}>
-                            <strong className="font-serif">{q.itemNumber ? `${q.itemNumber}. ` : `${serialNum}. `}</strong>
-                            <span>{q.question.split('\n')[0]}</span>
-                          </p>
-                          {q.marksDistribution && (
-                            <span className="font-mono text-[10px] text-slate-700 shrink-0 font-bold">
-                              {q.marksDistribution}
-                            </span>
-                          )}
-                        </div>
-                        {(q as any).cluesBox && (q as any).cluesBox.length > 0 && (
-                          <div className="p-1 border border-slate-400 rounded text-[9.5px] font-mono text-center my-0.5 bg-slate-50/50">
-                            [ {(q as any).cluesBox.join(' | ')} ]
-                          </div>
-                        )}
-                        {q.question.includes('\n') && (
-                          <div className="text-[10px] font-serif leading-relaxed text-slate-900 pl-3">
-                            {renderFormattedQuestionContent(q.question.substring(q.question.indexOf('\n') + 1).trim())}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        <p className={`${fontDensityClasses.mcqText} font-sans`}>
-                          <strong className="font-serif">{toBengaliNumber(serialNum)}. </strong>
-                          {q.type === 'mcq' ? q.question : ''}
-                        </p>
-                        {q.type === 'mcq' && (
-                          <div className={`grid grid-cols-2 sm:grid-cols-4 gap-x-2 gap-y-0.5 pl-2 pt-0.5 ${fontDensityClasses.optionsText} text-slate-800 font-sans`}>
-                            <span>(ক) {q.options[0]}</span>
-                            <span>(খ) {q.options[1]}</span>
-                            <span>(গ) {q.options[2]}</span>
-                            <span>(ঘ) {q.options[3]}</span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                );
-              })}
+            <div
+              className={
+                mcqColumns === 2 && !isEnglishPaper
+                  ? 'grid grid-cols-2 gap-x-3 items-start'
+                  : 'flex flex-col'
+              }
+            >
+              {page2Mcqs.map((q, idx) => renderMcqQuestionBlock(q, mcqPage1Count + idx + 1))}
             </div>
           </div>
         )}
 
         {/* 'খ' বিভাগ : সংক্ষিপ্ত প্রশ্নাবলী (Short Questions) */}
         {sectionKhQuestions.length > 0 && (
-          <div className={`flex-1 flex flex-col ${fontDensityClasses.spacing} pt-1.5 border-t border-dashed border-slate-400`}>
-            <div className="text-center border-b border-slate-800 pb-0.5 mb-1">
+          <div className="flex-1 flex flex-col pt-1.5 border-t border-dashed border-slate-400">
+            <div className="text-center border-b border-slate-800 pb-0.5 mb-1.5">
               <h2 className={`font-bold uppercase tracking-wider text-slate-900 ${fontDensityClasses.heading}`}>
                 'খ' বিভাগ : সংক্ষিপ্ত প্রশ্নাবলী [পূর্ণমান: {toBengaliNumber(sectionKhMarks)}]
               </h2>
-              <p className="text-[9.5px] text-slate-600 italic">
+              <p className="text-[9px] text-slate-600 italic">
                 [যেকোনো {toBengaliNumber(Math.min(sectionKhQuestions.length, 10))}টি প্রশ্নের সংক্ষিপ্ত উত্তর দাও। প্রতিটি প্রশ্নের মান ২।]
               </p>
             </div>
 
-            <div className={`flex-1 flex flex-col justify-start ${fontDensityClasses.spacing}`}>
+            <div className="flex-1 flex flex-col justify-start space-y-1">
               {sectionKhQuestions.map((q, idx) => (
-                <div key={q.id || idx} className="flex items-start justify-between gap-3 break-inside-avoid text-slate-950 font-sans">
-                  <p className={fontDensityClasses.bodyText}>
-                    <strong className="font-serif">{toBengaliNumber(idx + 1)}. </strong>
+                <div
+                  key={q.id || idx}
+                  className="flex items-start justify-between gap-3 break-inside-avoid text-slate-950 font-sans"
+                  style={{ fontSize: `${customFontSizePx}px` }}
+                >
+                  <p contentEditable={isInlineEditing} suppressContentEditableWarning>
+                    <strong className="font-serif">{formatSerialNumber(idx + 1)} </strong>
                     {q.type === 'short' ? q.question : ''}
                   </p>
-                  <span className="font-mono text-[10px] text-slate-700 shrink-0 font-bold">
+                  <span className="font-mono text-[9.5px] text-slate-700 shrink-0 font-bold">
                     [{toBengaliNumber(q.marks || 2)}]
                   </span>
                 </div>
@@ -604,10 +776,43 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
             </div>
           </div>
         )}
+
+        {/* Optional Attached Mini OMR Grid at Bottom of Page 2 (ProshnoLab / eProshnobank signature feature) */}
+        {showMiniOmr && sectionKQuestions.some(q => q.type === 'mcq') && (
+          <div className="mt-auto pt-1.5 border-t-2 border-dashed border-slate-700 bg-slate-50/60 p-1.5 rounded">
+            <div className="flex items-center justify-between text-[8.5px] font-bold font-sans text-slate-900 mb-1 border-b border-slate-300 pb-0.5">
+              <span>✂ সংযুক্ত মিনি OMR উত্তরপত্র (সঠিক বৃত্তটি কালো বলপেন দিয়ে ভরাট করো)</span>
+              <span>নাম: ............................... রোল: ............ সেট: [{activeSet}]</span>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-x-2 gap-y-0.5 font-sans text-[8px]">
+              {sectionKQuestions
+                .filter(q => q.type === 'mcq')
+                .slice(0, 30)
+                .map((q, idx) => (
+                  <div key={idx} className="flex items-center gap-0.5">
+                    <span className="w-3.5 font-bold text-right">{toBengaliNumber(idx + 1)}.</span>
+                    {(['ক', 'খ', 'গ', 'ঘ'] as const).map((ltr, oIdx) => {
+                      const isAns = showTickAnswer && (q as MCQQuestion).correctOption === oIdx;
+                      return (
+                        <span
+                          key={ltr}
+                          className={`inline-flex items-center justify-center w-3 h-3 rounded-full border text-[7px] font-bold ${
+                            isAns ? 'bg-slate-900 text-white border-slate-900' : 'border-slate-600 text-slate-800 bg-white'
+                          }`}
+                        >
+                          {ltr}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Page 2 Footer - ONLY PAGE NUMBER */}
-      <div className="relative z-10 pt-1.5 mt-auto border-t border-slate-300 text-center font-bold text-xs text-slate-900 font-sans tracking-widest">
+      {/* Page 2 Footer */}
+      <div className="relative z-10 pt-1 mt-auto border-t border-slate-300 text-center font-bold text-[10.5px] text-slate-900 font-sans tracking-widest">
         — পৃষ্ঠা ২ —
       </div>
     </div>
@@ -617,77 +822,90 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
   // PAGE 3: Inside Right / 'গ' বিভাগ : সৃজনশীল প্রশ্ন (CQ Part 1)
   // -------------------------------------------------------------
   const renderPage3 = () => (
-    <div className={`relative flex flex-col h-full justify-between p-3 sm:p-4 text-slate-950 font-serif ${borderClass} bg-white box-border`}>
+    <div
+      className={`relative flex flex-col h-full justify-between p-3 text-slate-950 font-serif ${borderClass} bg-white box-border`}
+      style={{ color: paperTextColor }}
+    >
       <WatermarkOverlay />
 
       <div className="relative z-10 flex-1 flex flex-col justify-start">
         {/* Subtle Top Header */}
-        <div className="flex items-center justify-between text-[10px] font-bold text-slate-700 border-b border-slate-300 pb-1 mb-2 font-sans">
-          <span>{config.subject}</span>
-          <span>{config.examTitle}</span>
+        <div className="flex items-center justify-between text-[9.5px] font-bold text-slate-700 border-b border-slate-300 pb-0.5 mb-1.5 font-sans">
+          <span>{config.subject} ({config.className})</span>
+          <span>সেট: {activeSet} | {config.examTitle}</span>
         </div>
 
         {/* 'গ' বিভাগ : সৃজনশীল প্রশ্ন (CQ Part 1) or Part B: Composition */}
         {page3Cqs.length > 0 && (
-          <div className={`flex-1 flex flex-col ${fontDensityClasses.spacing}`}>
+          <div className="flex-1 flex flex-col">
             <div className="text-center border-b border-slate-800 pb-0.5 mb-1.5">
               <h2 className={`font-bold uppercase tracking-wider text-slate-900 ${fontDensityClasses.heading}`}>
                 {isEnglishPaper
                   ? `Part B : Composition [Full Marks: ${sectionGMarks}]`
                   : `'গ' বিভাগ : সৃজনশীল প্রশ্নাবলী (CQ) ${sectionGMarks > 0 ? `[পূর্ণমান: ${toBengaliNumber(sectionGMarks)}]` : ''}`}
               </h2>
-              <p className="text-[9.5px] text-slate-600 italic">
+              <p className="text-[9px] text-slate-600 italic">
                 {isEnglishPaper
                   ? '[Answer the following questions / write the composition as instructed.]'
                   : '[উদ্দীপকগুলো মনোযোগ সহকারে পড়ে সংশ্লিষ্ট প্রশ্নগুলোর যথাযথ উত্তর দাও।]'}
               </p>
             </div>
 
-            <div className={`flex-1 flex flex-col justify-start ${fontDensityClasses.spacing}`}>
+            <div className="flex-1 flex flex-col justify-start space-y-2">
               {page3Cqs.map((q, idx) => (
-                <div key={q.id || idx} className="break-inside-avoid border-b border-slate-200 pb-2.5 last:border-b-0">
+                <div
+                  key={q.id || idx}
+                  className="break-inside-avoid pb-1.5"
+                  style={{ fontSize: `${customFontSizePx}px` }}
+                >
                   {q.type === 'short' ? (
                     <div className="space-y-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p className={`${fontDensityClasses.bodyText} font-sans leading-snug`}>
+                        <p className="font-sans leading-snug" contentEditable={isInlineEditing} suppressContentEditableWarning>
                           <strong className="font-serif">{q.itemNumber ? `${q.itemNumber}. ` : `${page1Mcqs.length + page2Mcqs.length + idx + 1}. `}</strong>
                           <span>{q.question.split('\n')[0]}</span>
                         </p>
                         {q.marksDistribution && (
-                          <span className="font-mono text-[10px] text-slate-700 shrink-0 font-bold">
+                          <span className="font-mono text-[9.5px] text-slate-700 shrink-0 font-bold">
                             {q.marksDistribution}
                           </span>
                         )}
                       </div>
                       {q.question.includes('\n') && (
-                        <div className="text-[10.5px] font-serif leading-relaxed text-slate-900 pl-3 pt-0.5">
+                        <div className="text-[10px] font-serif leading-relaxed text-slate-900 pl-3 pt-0.5" contentEditable={isInlineEditing} suppressContentEditableWarning>
                           {renderFormattedQuestionContent(q.question.substring(q.question.indexOf('\n') + 1).trim())}
                         </div>
                       )}
                     </div>
                   ) : q.type === 'cq' ? (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between gap-2 mb-0.5">
-                        <span className="font-bold text-[11px] text-slate-950 font-sans">
-                          {toBengaliNumber(idx + 1)}. নিচের উদ্দীপকটি পড়ে সংশ্লিষ্ট প্রশ্নগুলোর যথাযথ উত্তর দাও:
+                    <div className="space-y-0.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-slate-950 font-sans" contentEditable={isInlineEditing} suppressContentEditableWarning>
+                          {formatSerialNumber(idx + 1)} নিচের উদ্দীপকটি পড়ে সংশ্লিষ্ট প্রশ্নগুলোর যথাযথ উত্তর দাও:
                         </span>
-                        {q.boardInfo && (
-                          <span className="font-sans text-[9px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-300">
+                        {showBoardTag && q.boardInfo && (
+                          <span className="font-sans text-[8.5px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-300">
                             {q.boardInfo}
                           </span>
                         )}
                       </div>
-                      {/* Stimulus - Clean borderless NCTB format */}
-                      <div className="font-serif leading-relaxed text-slate-950 text-justify py-0.5 pl-0.5 font-medium">
+                      {/* Stimulus */}
+                      <div
+                        className="font-serif leading-relaxed text-slate-950 text-justify py-0.5 pl-0.5 font-medium"
+                        contentEditable={isInlineEditing}
+                        suppressContentEditableWarning
+                      >
                         {q.stimulus}
                       </div>
 
                       {/* Sub Questions (ক, খ, গ, ঘ) */}
-                      <div className="space-y-1 pl-2 font-sans">
+                      <div className="space-y-0.5 pl-2 font-sans">
                         {q.subQuestions.map(sq => (
-                          <div key={sq.label} className={`flex items-start justify-between text-slate-900 ${fontDensityClasses.cqText}`}>
-                            <span><strong>({sq.label})</strong> {sq.question}</span>
-                            <span className="font-mono text-slate-700 pl-2 font-bold shrink-0">
+                          <div key={sq.label} className="flex items-start justify-between text-slate-900">
+                            <span contentEditable={isInlineEditing} suppressContentEditableWarning>
+                              <strong>({sq.label})</strong> {sq.question}
+                            </span>
+                            <span className="font-mono text-slate-700 pl-2 font-bold shrink-0 text-[9.5px]">
                               [{isEnglishPaper ? sq.marks : toBengaliNumber(sq.marks)}]
                             </span>
                           </div>
@@ -702,8 +920,8 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
         )}
       </div>
 
-      {/* Page 3 Footer - ONLY PAGE NUMBER */}
-      <div className="relative z-10 pt-1.5 mt-auto border-t border-slate-300 text-center font-bold text-xs text-slate-900 font-sans tracking-widest">
+      {/* Page 3 Footer */}
+      <div className="relative z-10 pt-1 mt-auto border-t border-slate-300 text-center font-bold text-[10.5px] text-slate-900 font-sans tracking-widest">
         — পৃষ্ঠা ৩ —
       </div>
     </div>
@@ -713,72 +931,85 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
   // PAGE 4: Back Cover / 'গ' বিভাগ (CQ Part 2) & Clean Ending
   // -------------------------------------------------------------
   const renderPage4 = () => (
-    <div className={`relative flex flex-col h-full justify-between p-3 sm:p-4 text-slate-950 font-serif ${borderClass} bg-white box-border`}>
+    <div
+      className={`relative flex flex-col h-full justify-between p-3 text-slate-950 font-serif ${borderClass} bg-white box-border`}
+      style={{ color: paperTextColor }}
+    >
       <WatermarkOverlay />
 
       <div className="relative z-10 flex-1 flex flex-col justify-start">
         {/* Subtle Top Header */}
-        <div className="flex items-center justify-between text-[10px] font-bold text-slate-700 border-b border-slate-300 pb-1 mb-2 font-sans">
-          <span>{config.subject}</span>
-          <span>{config.examTitle}</span>
+        <div className="flex items-center justify-between text-[9.5px] font-bold text-slate-700 border-b border-slate-300 pb-0.5 mb-1.5 font-sans">
+          <span>{config.subject} ({config.className})</span>
+          <span>সেট: {activeSet} | {config.examTitle}</span>
         </div>
 
         {/* 'গ' বিভাগ : সৃজনশীল প্রশ্ন (CQ Part 2) or Part B: Composition continued */}
         {page4Cqs.length > 0 && (
-          <div className={`flex-1 flex flex-col ${fontDensityClasses.spacing}`}>
+          <div className="flex-1 flex flex-col">
             <div className="text-center border-b border-slate-800 pb-0.5 mb-1.5">
               <h2 className={`font-bold uppercase tracking-wider text-slate-900 ${fontDensityClasses.heading}`}>
                 {isEnglishPaper ? 'Part B : Composition (Continued)' : '\'গ\' বিভাগ : সৃজনশীল প্রশ্নাবলী (অবশিষ্টাংশ)'}
               </h2>
             </div>
 
-            <div className={`flex-1 flex flex-col justify-start ${fontDensityClasses.spacing}`}>
+            <div className="flex-1 flex flex-col justify-start space-y-2">
               {page4Cqs.map((q, idx) => {
                 const serialNum = cqPage3Count + idx + 1;
                 return (
-                  <div key={q.id || idx} className="break-inside-avoid border-b border-slate-200 pb-2.5 last:border-b-0">
+                  <div
+                    key={q.id || idx}
+                    className="break-inside-avoid pb-1.5"
+                    style={{ fontSize: `${customFontSizePx}px` }}
+                  >
                     {q.type === 'short' ? (
                       <div className="space-y-1">
                         <div className="flex items-start justify-between gap-2">
-                          <p className={`${fontDensityClasses.bodyText} font-sans leading-snug`}>
+                          <p className="font-sans leading-snug" contentEditable={isInlineEditing} suppressContentEditableWarning>
                             <strong className="font-serif">{q.itemNumber ? `${q.itemNumber}. ` : `${page1Mcqs.length + page2Mcqs.length + serialNum}. `}</strong>
                             <span>{q.question.split('\n')[0]}</span>
                           </p>
                           {q.marksDistribution && (
-                            <span className="font-mono text-[10px] text-slate-700 shrink-0 font-bold">
+                            <span className="font-mono text-[9.5px] text-slate-700 shrink-0 font-bold">
                               {q.marksDistribution}
                             </span>
                           )}
                         </div>
                         {q.question.includes('\n') && (
-                          <div className="text-[10.5px] font-serif leading-relaxed text-slate-900 pl-3 pt-0.5">
+                          <div className="text-[10px] font-serif leading-relaxed text-slate-900 pl-3 pt-0.5" contentEditable={isInlineEditing} suppressContentEditableWarning>
                             {renderFormattedQuestionContent(q.question.substring(q.question.indexOf('\n') + 1).trim())}
                           </div>
                         )}
                       </div>
                     ) : q.type === 'cq' ? (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-2 mb-0.5">
-                          <span className="font-bold text-[11px] text-slate-950 font-sans">
-                            {toBengaliNumber(serialNum)}. নিচের উদ্দীপকটি পড়ে সংশ্লিষ্ট প্রশ্নগুলোর যথাযথ উত্তর দাও:
+                      <div className="space-y-0.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-slate-950 font-sans" contentEditable={isInlineEditing} suppressContentEditableWarning>
+                            {formatSerialNumber(serialNum)} নিচের উদ্দীপকটি পড়ে সংশ্লিষ্ট প্রশ্নগুলোর যথাযথ উত্তর দাও:
                           </span>
-                          {q.boardInfo && (
-                            <span className="font-sans text-[9px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-300">
+                          {showBoardTag && q.boardInfo && (
+                            <span className="font-sans text-[8.5px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-300">
                               {q.boardInfo}
                             </span>
                           )}
                         </div>
-                        {/* Stimulus - Clean borderless NCTB format */}
-                        <div className="font-serif leading-relaxed text-slate-950 text-justify py-0.5 pl-0.5 font-medium">
+                        {/* Stimulus */}
+                        <div
+                          className="font-serif leading-relaxed text-slate-950 text-justify py-0.5 pl-0.5 font-medium"
+                          contentEditable={isInlineEditing}
+                          suppressContentEditableWarning
+                        >
                           {q.stimulus}
                         </div>
 
                         {/* Sub Questions (ক, খ, গ, ঘ) */}
-                        <div className="space-y-1 pl-2 font-sans">
+                        <div className="space-y-0.5 pl-2 font-sans">
                           {q.subQuestions.map(sq => (
-                            <div key={sq.label} className={`flex items-start justify-between text-slate-900 ${fontDensityClasses.cqText}`}>
-                              <span><strong>({sq.label})</strong> {sq.question}</span>
-                              <span className="font-mono text-slate-700 pl-2 font-bold shrink-0">
+                            <div key={sq.label} className="flex items-start justify-between text-slate-900">
+                              <span contentEditable={isInlineEditing} suppressContentEditableWarning>
+                                <strong>({sq.label})</strong> {sq.question}
+                              </span>
+                              <span className="font-mono text-slate-700 pl-2 font-bold shrink-0 text-[9.5px]">
                                 [{isEnglishPaper ? sq.marks : toBengaliNumber(sq.marks)}]
                               </span>
                             </div>
@@ -794,17 +1025,34 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
         )}
 
         {/* Clean Completion Line */}
-        <div className="mt-auto py-2 text-center text-slate-700 font-bold text-xs tracking-wider">
+        <div className="mt-auto py-1.5 text-center text-slate-700 font-bold text-[11px] tracking-wider">
           — সমাপ্ত —
         </div>
 
+        {/* Optional Chirkut / Tear-off Answer Slip (চিরকুট উত্তরপত্র) */}
+        {showTearOffSlip && sectionKQuestions.length > 0 && (
+          <div className="mt-1 pt-1 border-t border-dashed border-slate-500 space-y-1">
+            <div className="flex items-center justify-between text-[8px] font-bold text-slate-800 font-sans">
+              <span>✂ চিরকুট উত্তরপত্র (শিক্ষার্থীর অংশ)</span>
+              <span>নাম: .................................... রোল: .............</span>
+            </div>
+            <div className="grid grid-cols-10 gap-0.5 text-[8px] text-center font-mono">
+              {sectionKQuestions.slice(0, 30).map((_, idx) => (
+                <div key={idx} className="p-0.5 border border-slate-400 bg-white">
+                  <span className="text-slate-600">{toBengaliNumber(idx + 1)}:</span> ___
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Optional Answer Key for Teachers / Evaluators */}
         {showAnswerKey && sectionKQuestions.length > 0 && (
-          <div className="mt-2 pt-1.5 border-t border-dashed border-slate-400 space-y-1">
-            <div className="text-center font-bold text-[9px] uppercase tracking-wider text-slate-800 font-sans">
-              ★ বহুনির্বাচনী উত্তরমালা (Answer Key) ★
+          <div className="mt-1.5 pt-1 border-t border-dashed border-slate-400 space-y-1">
+            <div className="text-center font-bold text-[8.5px] uppercase tracking-wider text-slate-800 font-sans">
+              ★ বহুনির্বাচনী উত্তরমালা (সেট: {activeSet}) ★
             </div>
-            <div className="grid grid-cols-6 sm:grid-cols-10 gap-1 text-[8.5px] text-center font-mono">
+            <div className="grid grid-cols-6 sm:grid-cols-10 gap-1 text-[8px] text-center font-mono">
               {sectionKQuestions.map((q, idx) => {
                 const correctLetters = ['ক', 'খ', 'গ', 'ঘ'];
                 return (
@@ -821,431 +1069,714 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
         )}
       </div>
 
-      {/* Page 4 Footer - ONLY PAGE NUMBER */}
-      <div className="relative z-10 pt-1.5 mt-auto border-t border-slate-300 text-center font-bold text-xs text-slate-900 font-sans tracking-widest">
+      {/* Page 4 Footer */}
+      <div className="relative z-10 pt-1 mt-auto border-t border-slate-300 text-center font-bold text-[10.5px] text-slate-900 font-sans tracking-widest">
         — পৃষ্ঠা ৪ —
       </div>
     </div>
   );
 
+  // All questions combined for Smart Board classroom view
+  const allQuestionsForBoard = useMemo(
+    () => [...sectionKQuestions, ...sectionKhQuestions, ...sectionGQuestions],
+    [sectionKQuestions, sectionKhQuestions, sectionGQuestions]
+  );
+
   return (
-    <div className="space-y-6 text-[#1f332c]">
+    <div className="space-y-4 text-[#1f332c]">
       
-      {/* Control Toolbar */}
-      <div className="bg-[#ffffff] rounded-2xl p-4 shadow-xs border border-[#c0dfe1] flex flex-wrap items-center justify-between gap-4 print:hidden">
-        
-        {/* Left Side: Layout Modes & Options */}
-        <div className="flex flex-wrap items-center gap-3">
-          
+      {/* Top Action & Quick Mode Bar */}
+      <div className="bg-white rounded-2xl p-3.5 shadow-xs border border-slate-200 flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={onSwitchToPortrait}
-            className="px-3.5 py-1.5 rounded-xl bg-[#eae8d9]/70 hover:bg-[#b1c0a1]/30 border border-[#c0dfe1] text-[#1f332c] font-semibold text-xs flex items-center gap-1.5 cursor-pointer transition"
+            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition"
           >
-            <FileText className="w-3.5 h-3.5 text-[#78988b]" />
-            <span>পোর্ট্রেট ভিউ (A4 সাধারণ)</span>
+            <FileText className="w-3.5 h-3.5 text-teal-700" />
+            <span>পোর্ট্রেট A4 ভিউ</span>
           </button>
 
-          <div className="h-6 w-px bg-[#c0dfe1]" />
-
           {/* Imposition / Page Layout Mode Toggle */}
-          <div className="flex items-center gap-1 bg-[#eae8d9]/60 p-1 rounded-xl border border-[#c0dfe1]">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button
               onClick={() => setOrderMode('p1_p2')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition flex items-center gap-1.5 ${
-                orderMode === 'p1_p2' ? 'bg-[#78988b] text-white shadow-xs' : 'text-[#53685e] hover:text-[#1f332c]'
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition flex items-center gap-1 ${
+                orderMode === 'p1_p2' ? 'bg-teal-700 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
-              title="স্ক্রিনে পড়ার ও রিভিশনের স্বাভাবিক ক্রম: পাতা ১ (পৃষ্ঠা ১ ও ২) এবং পাতা ২ (পৃষ্ঠা ৩ ও ৪)"
             >
               <BookOpen className="w-3.5 h-3.5" />
-              <span>পড়ার স্বাভাবিক ক্রম (১, ২ | ৩, ৪)</span>
+              <span>স্বাভাবিক ক্রম (১, ২ | ৩, ৪)</span>
             </button>
 
             <button
               onClick={() => setOrderMode('p4_p1')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition flex items-center gap-1.5 ${
-                orderMode === 'p4_p1' ? 'bg-[#78988b] text-white shadow-xs' : 'text-[#53685e] hover:text-[#1f332c]'
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition flex items-center gap-1 ${
+                orderMode === 'p4_p1' ? 'bg-teal-700 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
               }`}
-              title="বুকলেট ভাঁজ প্রিন্ট ক্রম: পাতা ১ [৪ | ১] এবং পাতা ২ [২ | ৩] - প্রিন্ট দিয়ে মাঝখানে ভাঁজ করলে বইয়ের মতো সাজবে"
             >
               <FoldHorizontal className="w-3.5 h-3.5" />
-              <span>বুকলেট ভাঁজ প্রিন্ট (৪, ১ | ২, ৩)</span>
-            </button>
-
-            <button
-              onClick={() => setOrderMode('p1_p4')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition flex items-center gap-1.5 ${
-                orderMode === 'p1_p4' ? 'bg-[#78988b] text-white shadow-xs' : 'text-[#53685e] hover:text-[#1f332c]'
-              }`}
-              title="বামে পৃষ্ঠা ১ | ডানে পৃষ্ঠা ৪"
-            >
-              <span>১ | ৪</span>
+              <span>বুকলেট ভাঁজ (৪, ১ | ২, ৩)</span>
             </button>
           </div>
 
-          {/* Paper Size: A3 vs A4 */}
-          <div className="flex items-center gap-1 bg-[#eae8d9]/60 p-1 rounded-xl border border-[#c0dfe1]">
+          {/* 1-Column vs 2-Column MCQ inside Booklet Pages */}
+          <div className="flex items-center gap-1 bg-emerald-50 p-1 rounded-xl border border-emerald-200">
+            <Columns className="w-3.5 h-3.5 text-emerald-700 ml-1" />
             <button
-              onClick={() => setPaperSize('A3')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition ${
-                paperSize === 'A3' ? 'bg-white text-[#1f332c] shadow-xs' : 'text-[#53685e]'
+              onClick={() => setMcqColumns(1)}
+              className={`px-2 py-1 rounded-lg text-xs font-bold cursor-pointer transition ${
+                mcqColumns === 1 ? 'bg-emerald-700 text-white' : 'text-emerald-900'
               }`}
-              title="A3 ল্যান্ডস্কেপ শিট (ভাঁজ করলে ২টি A4 পাতা তৈরি হয়)"
             >
-              A3 সাইজ (বোর্ড স্ট্যান্ডার্ড)
+              ১ কলাম MCQ
             </button>
             <button
-              onClick={() => setPaperSize('A4')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition ${
-                paperSize === 'A4' ? 'bg-white text-[#1f332c] shadow-xs' : 'text-[#53685e]'
+              onClick={() => setMcqColumns(2)}
+              className={`px-2 py-1 rounded-lg text-xs font-bold cursor-pointer transition ${
+                mcqColumns === 2 ? 'bg-emerald-700 text-white' : 'text-emerald-900'
               }`}
-              title="A4 ল্যান্ডস্কেপ শিট (ভাঁজ করলে ২টি A5 পাতা তৈরি হয়)"
             >
-              A4 সাইজ (হোম প্রিন্টার)
+              ২ কলাম MCQ (কোচিং স্ট্যান্ডার্ড)
             </button>
           </div>
 
-          {/* Density Selector */}
-          <div className="flex items-center gap-1.5 text-xs text-[#53685e]">
-            <Sliders className="w-3.5 h-3.5 text-[#78988b]" />
-            <span className="font-semibold">ঘনত্ব:</span>
-            <select
-              value={density}
-              onChange={(e) => setDensity(e.target.value as any)}
-              className="bg-[#ffffff] border border-[#c0dfe1] rounded-lg px-2 py-0.5 text-xs font-bold text-[#1f332c] outline-none cursor-pointer"
-            >
-              <option value="compact">কমপ্যাক্ট (১০০ মার্ক ফিট)</option>
-              <option value="normal">স্ট্যান্ডার্ড</option>
-              <option value="spacious">উদার (বড় ফন্ট)</option>
-            </select>
-          </div>
-
-          {/* Border Frame Selector */}
-          <div className="flex items-center gap-1.5 text-xs text-[#53685e]">
-            <span className="font-semibold">বর্ডার:</span>
-            <select
-              value={borderStyle}
-              onChange={(e) => setBorderStyle(e.target.value as any)}
-              className="bg-[#ffffff] border border-[#c0dfe1] rounded-lg px-2 py-0.5 text-xs font-bold text-[#1f332c] outline-none cursor-pointer"
-            >
-              <option value="solid">স্ট্যান্ডার্ড ফ্রেম (বোর্ড)</option>
-              <option value="double">ক্লাসিক ডাবল ফ্রেম</option>
-              <option value="thin">সূক্ষ্ম ফ্রেম (Thin)</option>
-            </select>
-          </div>
-
-          {/* Picture Watermark Configuration Button */}
+          {/* Live Inline Editing Toggle */}
           <button
-            onClick={() => setShowWatermarkModal(true)}
-            className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition border ${
-              showWatermark 
-                ? 'bg-[#78988b]/20 text-[#1f332c] border-[#78988b]' 
-                : 'bg-white text-[#53685e] border-[#c0dfe1]'
+            onClick={() => setIsInlineEditing(!isInlineEditing)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition border ${
+              isInlineEditing
+                ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
             }`}
-            title="লগো জলছাপ আপলোড ও সেটিংস পরিবর্তন করুন"
           >
-            <ImageIcon className="w-3.5 h-3.5 text-[#78988b]" />
-            <span>লগো জলছাপ {showWatermark ? '(চালু)' : '(বন্ধ)'}</span>
+            <Edit3 className="w-3.5 h-3.5" />
+            <span>এডিটিং মোড {isInlineEditing ? '(চালু)' : '(বন্ধ)'}</span>
           </button>
 
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-[#1f332c] cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showAnswerKey}
-              onChange={(e) => setShowAnswerKey(e.target.checked)}
-              className="rounded text-[#78988b] focus:ring-[#78988b]"
-            />
-            <span>উত্তরমালা</span>
-          </label>
+          {/* Smart Board Classroom Mode */}
+          <button
+            onClick={() => {
+              setSmartBoardIndex(0);
+              setSmartBoardReveal(false);
+              setShowSmartBoard(true);
+            }}
+            className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer transition shadow-xs"
+          >
+            <Monitor className="w-3.5 h-3.5" />
+            <span>Smart Board-এ নিন</span>
+          </button>
         </div>
 
-        {/* Right Side: Print, Save & Edit */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        {/* Right Side: Customize Drawer Toggle, Save, PDF & Print */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setShowCustomizationSidebar(!showCustomizationSidebar)}
+            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer transition border ${
+              showCustomizationSidebar
+                ? 'bg-slate-900 text-white border-slate-900'
+                : 'bg-slate-100 text-slate-800 border-slate-300'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5" />
+            <span>প্রশ্ন কাস্টমাইজেশন প্যানেল</span>
+          </button>
+
           <button
             onClick={onEditQuestions}
-            className="px-3.5 py-2 rounded-xl bg-[#eae8d9]/70 hover:bg-[#b1c0a1]/30 border border-[#c0dfe1] text-[#1f332c] font-semibold text-xs md:text-sm cursor-pointer transition"
+            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 font-semibold text-xs cursor-pointer transition"
           >
-            ← প্রশ্ন এডিট করুন
+            ← প্রশ্ন সংযোজন
           </button>
 
           {onSavePaper && (
             <button
               onClick={onSavePaper}
-              className="px-4 py-2 rounded-xl bg-[#749fa0] hover:bg-[#5f8788] text-white font-bold text-xs md:text-sm shadow-xs flex items-center gap-1.5 cursor-pointer transition"
-              title="প্রশ্নপত্রটি শিরোনাম দিয়ে সংরক্ষণ করুন"
+              className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition"
             >
-              <Bookmark className="w-4 h-4 text-[#eae8d9]" />
-              <span>সেভ প্রশ্নপত্র</span>
+              <Bookmark className="w-3.5 h-3.5" />
+              <span>সেভ</span>
             </button>
           )}
 
-          {/* Download Multi-Page PDF */}
           <button
             onClick={handleDownloadPDF}
             disabled={isExportingPdf}
-            className="px-4 py-2 rounded-xl bg-[#749fa0] hover:bg-[#5f8788] text-white font-bold text-xs md:text-sm shadow-xs flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
-            title="সম্পূর্ণ ৪-পৃষ্ঠার প্রশ্নপত্রটি ২টি ল্যান্ডস্কেপ শিট আকারে হাই-রেজুলেশন পিডিএফ ডাউনলোড করুন"
+            className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
           >
-            <Download className="w-4 h-4 text-[#eae8d9]" />
-            <span>{isExportingPdf ? 'পিডিএফ প্রস্তুত হচ্ছে...' : 'পিডিএফ ডাউনলোড (PDF)'}</span>
+            <Download className="w-3.5 h-3.5" />
+            <span>{isExportingPdf ? 'পিডিএফ তৈরি হচ্ছে...' : 'ডাউনলোড (PDF)'}</span>
           </button>
 
           <button
             onClick={handlePrint}
-            className="px-5 py-2 rounded-xl bg-[#78988b] hover:bg-[#658276] text-white font-bold text-xs md:text-sm shadow-xs flex items-center gap-2 cursor-pointer transition"
-          >
-            <Printer className="w-4 h-4" />
-            <span>প্রিন্ট করুন (Print Booklet)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Page Split Adjustment Toolbar */}
-      <div className="bg-[#b1c0a1]/25 border border-[#b1c0a1] rounded-2xl p-3.5 text-xs flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <div className="flex items-center gap-2 font-bold text-[#1f332c]">
-          <Sparkles className="w-4 h-4 text-[#78988b] shrink-0" />
-          <span>৪টি পেজে প্রশ্ন বণ্টনের নিয়ন্ত্রণ:</span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4 text-[#1f332c]">
-          {/* MCQ Split Control */}
-          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-[#c0dfe1] shadow-2xs">
-            <span className="font-semibold text-slate-600">১ম পৃষ্ঠায় MCQ:</span>
-            <button
-              onClick={() => setMcqPage1Count(prev => Math.max(1, prev - 1))}
-              disabled={mcqPage1Count <= 1}
-              className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center cursor-pointer disabled:opacity-40"
-            >
-              -
-            </button>
-            <span className="font-bold text-emerald-800 min-w-[20px] text-center">
-              {toBengaliNumber(mcqPage1Count)}
-            </span>
-            <button
-              onClick={() => setMcqPage1Count(prev => Math.min(sectionKQuestions.length, prev + 1))}
-              disabled={mcqPage1Count >= sectionKQuestions.length}
-              className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center cursor-pointer disabled:opacity-40"
-            >
-              +
-            </button>
-            <span className="text-[11px] text-slate-400">
-              (২য় পৃষ্ঠায় {toBengaliNumber(sectionKQuestions.length - mcqPage1Count)}টি)
-            </span>
-          </div>
-
-          {/* CQ Split Control */}
-          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs">
-            <span className="font-semibold text-slate-600">৩য় পৃষ্ঠায় CQ (সৃজনশীল):</span>
-            <button
-              onClick={() => setCqPage3Count(prev => Math.max(1, prev - 1))}
-              disabled={cqPage3Count <= 1}
-              className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center cursor-pointer disabled:opacity-40"
-            >
-              -
-            </button>
-            <span className="font-bold text-emerald-800 min-w-[20px] text-center">
-              {toBengaliNumber(cqPage3Count)}
-            </span>
-            <button
-              onClick={() => setCqPage3Count(prev => Math.min(sectionGQuestions.length, prev + 1))}
-              disabled={cqPage3Count >= sectionGQuestions.length}
-              className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center cursor-pointer disabled:opacity-40"
-            >
-              +
-            </button>
-            <span className="text-[11px] text-slate-400">
-              (৪র্থ পৃষ্ঠায় {toBengaliNumber(sectionGQuestions.length - cqPage3Count)}টি)
-            </span>
-          </div>
-
-          <div className="font-bold text-emerald-800 bg-white px-3 py-1.5 rounded-xl border border-emerald-200">
-            মোট মান: {toBengaliNumber(totalCalculatedMarks)}
-          </div>
-        </div>
-      </div>
-
-      {/* Visual Duplex Folding Instruction Guide Banner */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 shadow-sm print:hidden">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-              <FoldHorizontal className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-blue-950 flex items-center gap-2">
-                <span>এপিডোবিট ডুপ্লেক্স ও মাঝখান দিয়ে ভাঁজ করার প্রিন্ট গাইড (Folding Instructions)</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-blue-200/80 text-blue-800 font-semibold">
-                  ১টি পেপারের উভয় পিঠ
-                </span>
-              </h3>
-              <p className="text-xs text-blue-800/90 mt-1 leading-relaxed">
-                ১০০ নম্বরের পূর্ণাঙ্গ মডেল টেস্ট প্রিন্ট করার জন্য আপনার অনেকগুলো কাগজের প্রয়োজন নেই! নিচে প্রদর্শিত <strong>পাতা ১ (বাইরের পিঠ)</strong> এবং <strong>পাতা ২ (ভেতরের পিঠ)</strong> একটি মাত্র A3 বা Legal/A4 কাগজের উভয় পিঠে (এপিডোবিট / Two-Sided Print) প্রিন্ট করুন।
-              </p>
-              
-              {showGuide && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3 pt-3 border-t border-blue-200/70 text-xs">
-                  <div className="bg-white/80 p-2.5 rounded-xl border border-blue-100">
-                    <span className="font-bold text-blue-900 block mb-0.5">১. এপিডোবিট প্রিন্ট:</span>
-                    <span className="text-slate-600 leading-normal">
-                      প্রিন্ট ডায়ালগে <strong>"Two-Sided (Flip on short edge)"</strong> নির্বাচন করে ল্যান্ডস্কেপে প্রিন্ট দিন।
-                    </span>
-                  </div>
-
-                  <div className="bg-white/80 p-2.5 rounded-xl border border-blue-100">
-                    <span className="font-bold text-blue-900 block mb-0.5">২. মাঝখানে ভাঁজ করুন:</span>
-                    <span className="text-slate-600 leading-normal">
-                      প্রিন্ট হওয়ার পর কাগজটি ঠিক মাঝখানের কাঁচির চিহ্ন (✂) বরাবর সোজা ভাঁজ করে নিন।
-                    </span>
-                  </div>
-
-                  <div className="bg-white/80 p-2.5 rounded-xl border border-blue-100">
-                    <span className="font-bold text-blue-900 block mb-0.5">৩. ৪ পাতার কমপ্লিট বুকলেট:</span>
-                    <span className="text-slate-600 leading-normal">
-                      ভাঁজ করলেই সামনে <strong>পৃষ্ঠা ১</strong>, খুললে ভেতরে <strong>পৃষ্ঠা ২ ও ৩</strong> এবং পেছনে <strong>পৃষ্ঠা ৪</strong> ক্রমানুসারে চমৎকার বইয়ের মতো তৈরি হবে!
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowGuide(!showGuide)}
-            className="text-blue-700 hover:text-blue-900 p-1 cursor-pointer shrink-0"
-            title="গাইড লুকান / দেখান"
-          >
-            {showGuide ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* PRINTABLE SHEETS CONTAINER */}
-      {/* ========================================================================= */}
-      <div id="printable-booklet-sheets" className="space-y-10">
-
-        {/* ------------------------------------------------------------- */}
-        {/* SHEET 1: Outer Cover / Sheet 1                                */}
-        {/* Mode p1_p4: Left = Page 1 | Right = Page 4                    */}
-        {/* Mode p4_p1: Left = Page 4 | Right = Page 1                    */}
-        {/* Mode p1_p2: Left = Page 1 | Right = Page 2                    */}
-        {/* ------------------------------------------------------------- */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-700 px-1 print:hidden">
-            <span className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>পাতা ১ : ল্যান্ডস্কেপ শিট (Sheet 1)</span>
-            </span>
-            <span className="text-[11px] font-medium text-slate-500">
-              {orderMode === 'p4_p1' && 'বামে [পৃষ্ঠা ৪] • ডানে [পৃষ্ঠা ১] (বাইরের কভার: প্রিন্ট করে ভাঁজ করলে ১ সামনে ও ৪ পেছনে থাকবে)'}
-              {orderMode === 'p1_p4' && 'বামে [পৃষ্ঠা ১] • ডানে [পৃষ্ঠা ৪]'}
-              {orderMode === 'p1_p2' && 'বামে [পৃষ্ঠা ১] • ডানে [পৃষ্ঠা ২] (ধারাবাহিক মোড)'}
-            </span>
-          </div>
-
-          {/* Physical Sheet 1 Container - Clean zero-shadow border */}
-          <div 
-            id="booklet-sheet-1" 
-            className="booklet-print-sheet bg-white border border-slate-300 rounded-none print:shadow-none print:border-none print:m-0 w-full max-w-[1100px] mx-auto shadow-sm box-border min-h-[680px] h-auto print:h-full"
-          >
-            <div className="grid grid-cols-2 h-full relative divide-x-2 divide-dashed divide-slate-400">
-              
-              {/* Left Half of Sheet 1 */}
-              <div className="h-full p-2.5 sm:p-3 box-border overflow-visible print:overflow-hidden flex flex-col justify-between">
-                {orderMode === 'p1_p4' ? renderPage1() : orderMode === 'p4_p1' ? renderPage4() : renderPage1()}
-              </div>
-
-              {/* Center Fold Line Guide (Screen ONLY - Hidden in Print) */}
-              <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 flex flex-col justify-between items-center pointer-events-none py-3 text-[10px] text-slate-600 print:hidden z-20">
-                <span className="bg-white/95 px-2 py-0.5 rounded border border-slate-300 font-sans text-[10px] font-bold text-slate-800">
-                  ✂ ভাঁজ রেখা (মাঝখান)
-                </span>
-                <span className="bg-white/95 px-2 py-0.5 rounded border border-slate-300 font-sans text-[10px] font-bold text-slate-800">
-                  ✂ সমান দুই ভাগে ভাঁজ
-                </span>
-              </div>
-
-              {/* Right Half of Sheet 1 */}
-              <div className="h-full p-2.5 sm:p-3 box-border overflow-visible print:overflow-hidden flex flex-col justify-between">
-                {orderMode === 'p1_p4' ? renderPage4() : orderMode === 'p4_p1' ? renderPage1() : renderPage2()}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ------------------------------------------------------------- */}
-        {/* SHEET 2: Inner Spread / Sheet 2                               */}
-        {/* Mode p1_p4 / p4_p1: Left = Page 2 | Right = Page 3            */}
-        {/* Mode p1_p2: Left = Page 3 | Right = Page 4                    */}
-        {/* ------------------------------------------------------------- */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-700 px-1 print:hidden">
-            <span className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
-              <span>পাতা ২ : ল্যান্ডস্কেপ শিট (Sheet 2)</span>
-            </span>
-            <span className="text-[11px] font-medium text-slate-500">
-              {orderMode === 'p1_p2' ? 'বামে [পৃষ্ঠা ৩] • ডানে [পৃষ্ঠা ৪]' : 'বামে [পৃষ্ঠা ২] • ডানে [পৃষ্ঠা ৩] (ভেতরের স্প্রেড: খোলার পর বামে পৃষ্ঠা ২ ও ডানে পৃষ্ঠা ৩ থাকবে)'}
-            </span>
-          </div>
-
-          {/* Physical Sheet 2 Container - Clean zero-shadow border */}
-          <div 
-            id="booklet-sheet-2" 
-            className="booklet-print-sheet bg-white border border-slate-300 rounded-none print:shadow-none print:border-none print:m-0 w-full max-w-[1100px] mx-auto shadow-sm box-border min-h-[680px] h-auto print:h-full"
-          >
-            <div className="grid grid-cols-2 h-full relative divide-x-2 divide-dashed divide-slate-400">
-              
-              {/* Left Half of Sheet 2 */}
-              <div className="h-full p-2.5 sm:p-3 box-border overflow-visible print:overflow-hidden flex flex-col justify-between">
-                {orderMode === 'p1_p2' ? renderPage3() : renderPage2()}
-              </div>
-
-              {/* Center Fold Line Guide (Screen ONLY - Hidden in Print) */}
-              <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 flex flex-col justify-between items-center pointer-events-none py-3 text-[10px] text-slate-600 print:hidden z-20">
-                <span className="bg-white/95 px-2 py-0.5 rounded border border-slate-300 shadow-2xs font-sans text-[10px] font-bold text-slate-800">
-                  ✂ ভাঁজ রেখা (মাঝখান)
-                </span>
-                <span className="bg-white/95 px-2 py-0.5 rounded border border-slate-300 shadow-2xs font-sans text-[10px] font-bold text-slate-800">
-                  ✂ সমান দুই ভাগে ভাঁজ
-                </span>
-              </div>
-
-              {/* Right Half of Sheet 2 */}
-              <div className="h-full p-2.5 sm:p-3 box-border overflow-visible print:overflow-hidden flex flex-col justify-between">
-                {orderMode === 'p1_p2' ? renderPage4() : renderPage3()}
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Floating Bottom Quick Print Bar (Mobile & Screen convenience) */}
-      <div className="sticky bottom-4 z-40 bg-slate-900/90 backdrop-blur-md text-white p-3 rounded-2xl shadow-2xl border border-slate-800 flex items-center justify-between gap-3 max-w-2xl mx-auto print:hidden">
-        <div className="flex items-center gap-2.5 text-xs">
-          <BookOpen className="w-4 h-4 text-emerald-400" />
-          <span>
-            <strong>৪-পৃষ্ঠা বুকলেট লেআউট:</strong> {paperSize} ল্যান্ডস্কেপ • {orderMode === 'p4_p1' ? 'বুকলেট সেটআপ [৪, ১, ২, ৩]' : orderMode === 'p1_p4' ? 'বামে ১ | ডানে ৪' : 'ধারাবাহিক মোড'}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onSwitchToPortrait}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold cursor-pointer transition text-slate-300"
-          >
-            পোর্ট্রেট ভিউ
-          </button>
-          
-          <button
-            onClick={handlePrint}
-            className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-900/40 cursor-pointer transition"
+            className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>প্রিন্ট করুন</span>
+            <span>প্রিন্ট বুকলেট</span>
           </button>
         </div>
       </div>
+
+      {/* Floating Inline Editing Rich Text Toolbar (When Editing Mode is Active) */}
+      {isInlineEditing && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-2.5 flex flex-wrap items-center justify-between gap-3 print:hidden shadow-sm">
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-950">
+            <Edit3 className="w-4 h-4 text-amber-600" />
+            <span>লাইভ এডিটিং চালু: প্রশ্নপত্রের যেকোনো লেখার ওপর ক্লিক করে সরাসরি বাংলা/ইংরেজি এডিট করুন!</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-amber-200">
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); document.execCommand('bold'); }}
+              className="p-1.5 hover:bg-slate-100 rounded text-slate-800 font-bold"
+              title="Bold"
+            >
+              <Bold className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); document.execCommand('italic'); }}
+              className="p-1.5 hover:bg-slate-100 rounded text-slate-800"
+              title="Italic"
+            >
+              <Italic className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); document.execCommand('underline'); }}
+              className="p-1.5 hover:bg-slate-100 rounded text-slate-800"
+              title="Underline"
+            >
+              <Underline className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); document.execCommand('justifyLeft'); }}
+              className="p-1.5 hover:bg-slate-100 rounded text-slate-800"
+              title="Align Left"
+            >
+              <AlignLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); document.execCommand('justifyCenter'); }}
+              className="p-1.5 hover:bg-slate-100 rounded text-slate-800"
+              title="Align Center"
+            >
+              <AlignCenter className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Split Workspace: Left = Printable Booklet Sheets | Right = ProshnoLab/eProshnobank Live Settings Sidebar */}
+      <div className="flex flex-col xl:flex-row items-start gap-5">
+        
+        {/* LEFT COLUMN: Page Split Bar + Printable Booklet Sheets */}
+        <div className="flex-1 w-full min-w-0 space-y-5">
+          {/* Page Split Adjustment Toolbar */}
+          <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3 text-xs flex flex-wrap items-center justify-between gap-3 print:hidden">
+            <div className="flex items-center gap-2 font-bold text-slate-800">
+              <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span>৪টি পেজে প্রশ্ন বণ্টন ও ফন্ট সাইজ নিয়ন্ত্রণ:</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 text-slate-800">
+              {/* MCQ Split Control */}
+              <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200">
+                <span className="font-semibold text-slate-600">১ম পৃষ্ঠায় MCQ:</span>
+                <button
+                  onClick={() => setMcqPage1Count(prev => Math.max(1, prev - 1))}
+                  disabled={mcqPage1Count <= 1}
+                  className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center cursor-pointer disabled:opacity-40"
+                >
+                  -
+                </button>
+                <span className="font-bold text-emerald-800 min-w-[18px] text-center">
+                  {toBengaliNumber(mcqPage1Count)}
+                </span>
+                <button
+                  onClick={() => setMcqPage1Count(prev => Math.min(sectionKQuestions.length, prev + 1))}
+                  disabled={mcqPage1Count >= sectionKQuestions.length}
+                  className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center cursor-pointer disabled:opacity-40"
+                >
+                  +
+                </button>
+                <span className="text-[10.5px] text-slate-400">
+                  (২য় পৃষ্ঠায় {toBengaliNumber(Math.max(0, sectionKQuestions.length - mcqPage1Count))}টি)
+                </span>
+              </div>
+
+              {/* CQ Split Control */}
+              <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200">
+                <span className="font-semibold text-slate-600">৩য় পৃষ্ঠায় CQ:</span>
+                <button
+                  onClick={() => setCqPage3Count(prev => Math.max(1, prev - 1))}
+                  disabled={cqPage3Count <= 1}
+                  className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center cursor-pointer disabled:opacity-40"
+                >
+                  -
+                </button>
+                <span className="font-bold text-emerald-800 min-w-[18px] text-center">
+                  {toBengaliNumber(cqPage3Count)}
+                </span>
+                <button
+                  onClick={() => setCqPage3Count(prev => Math.min(sectionGQuestions.length, prev + 1))}
+                  disabled={cqPage3Count >= sectionGQuestions.length}
+                  className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center cursor-pointer disabled:opacity-40"
+                >
+                  +
+                </button>
+                <span className="text-[10.5px] text-slate-400">
+                  (৪র্থ পৃষ্ঠায় {toBengaliNumber(Math.max(0, sectionGQuestions.length - cqPage3Count))}টি)
+                </span>
+              </div>
+
+              {/* Font Size px Control */}
+              <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200">
+                <span className="font-semibold text-slate-600">ফন্ট:</span>
+                <button
+                  onClick={() => setCustomFontSizePx(prev => Math.max(9, prev - 0.5))}
+                  className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center cursor-pointer"
+                >
+                  -
+                </button>
+                <span className="font-mono font-bold text-slate-800">{customFontSizePx}px</span>
+                <button
+                  onClick={() => setCustomFontSizePx(prev => Math.min(16, prev + 0.5))}
+                  className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center cursor-pointer"
+                >
+                  +
+                </button>
+              </div>
+
+              {/* Gap px Control */}
+              <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200">
+                <span className="font-semibold text-slate-600">গ্যাপ:</span>
+                <button
+                  onClick={() => setCustomGapPx(prev => Math.max(1, prev - 1))}
+                  className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center cursor-pointer"
+                >
+                  -
+                </button>
+                <span className="font-mono font-bold text-slate-800">{customGapPx}px</span>
+                <button
+                  onClick={() => setCustomGapPx(prev => Math.min(14, prev + 1))}
+                  className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center cursor-pointer"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* PRINTABLE SHEETS CONTAINER (Exact A4 Landscape Proportions) */}
+          {/* ========================================================================= */}
+          <div id="printable-booklet-sheets" className="space-y-8 overflow-x-auto pb-2">
+
+            {/* SHEET 1 */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700 px-1 print:hidden">
+                <span className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  <span>পাতা ১ : ল্যান্ডস্কেপ শিট (Sheet 1)</span>
+                </span>
+                <span className="text-[11px] font-medium text-slate-500">
+                  {orderMode === 'p4_p1' && 'বামে [পৃষ্ঠা ৪] • ডানে [পৃষ্ঠা ১] (বুকলেট ভাঁজ ক্রম)'}
+                  {orderMode === 'p1_p4' && 'বামে [পৃষ্ঠা ১] • ডানে [পৃষ্ঠা ৪]'}
+                  {orderMode === 'p1_p2' && 'বামে [পৃষ্ঠা ১] • ডানে [পৃষ্ঠা ২] (ধারাবাহিক ক্রম)'}
+                </span>
+              </div>
+
+              <div 
+                id="booklet-sheet-1" 
+                className="booklet-print-sheet bg-white border border-slate-300 rounded-none print:shadow-none print:border-none print:m-0 w-full max-w-[1122px] mx-auto shadow-sm box-border min-h-[793px] h-auto print:h-full"
+              >
+                <div className="grid grid-cols-2 min-h-[793px] h-full relative divide-x-2 divide-dashed divide-slate-400">
+                  {/* Left Half of Sheet 1 */}
+                  <div className="h-full p-2.5 box-border flex flex-col justify-between">
+                    {orderMode === 'p1_p4' ? renderPage1() : orderMode === 'p4_p1' ? renderPage4() : renderPage1()}
+                  </div>
+
+                  {/* Center Fold Line Guide */}
+                  <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 flex flex-col justify-between items-center pointer-events-none py-2 text-[9px] text-slate-600 print:hidden z-20">
+                    <span className="bg-white/95 px-1.5 py-0.5 rounded border border-slate-300 font-sans font-bold text-slate-700">
+                      ✂ ভাঁজ রেখা
+                    </span>
+                    <span className="bg-white/95 px-1.5 py-0.5 rounded border border-slate-300 font-sans font-bold text-slate-700">
+                      ✂ মাঝখানে ভাঁজ
+                    </span>
+                  </div>
+
+                  {/* Right Half of Sheet 1 */}
+                  <div className="h-full p-2.5 box-border flex flex-col justify-between">
+                    {orderMode === 'p1_p4' ? renderPage4() : orderMode === 'p4_p1' ? renderPage1() : renderPage2()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SHEET 2 */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700 px-1 print:hidden">
+                <span className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                  <span>পাতা ২ : ল্যান্ডস্কেপ শিট (Sheet 2)</span>
+                </span>
+                <span className="text-[11px] font-medium text-slate-500">
+                  {orderMode === 'p1_p2' ? 'বামে [পৃষ্ঠা ৩] • ডানে [পৃষ্ঠা ৪]' : 'বামে [পৃষ্ঠা ২] • ডানে [পৃষ্ঠা ৩]'}
+                </span>
+              </div>
+
+              <div 
+                id="booklet-sheet-2" 
+                className="booklet-print-sheet bg-white border border-slate-300 rounded-none print:shadow-none print:border-none print:m-0 w-full max-w-[1122px] mx-auto shadow-sm box-border min-h-[793px] h-auto print:h-full"
+              >
+                <div className="grid grid-cols-2 min-h-[793px] h-full relative divide-x-2 divide-dashed divide-slate-400">
+                  {/* Left Half of Sheet 2 */}
+                  <div className="h-full p-2.5 box-border flex flex-col justify-between">
+                    {orderMode === 'p1_p2' ? renderPage3() : renderPage2()}
+                  </div>
+
+                  {/* Center Fold Line Guide */}
+                  <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 flex flex-col justify-between items-center pointer-events-none py-2 text-[9px] text-slate-600 print:hidden z-20">
+                    <span className="bg-white/95 px-1.5 py-0.5 rounded border border-slate-300 font-sans font-bold text-slate-700">
+                      ✂ ভাঁজ রেখা
+                    </span>
+                    <span className="bg-white/95 px-1.5 py-0.5 rounded border border-slate-300 font-sans font-bold text-slate-700">
+                      ✂ মাঝখানে ভাঁজ
+                    </span>
+                  </div>
+
+                  {/* Right Half of Sheet 2 */}
+                  <div className="h-full p-2.5 box-border flex flex-col justify-between">
+                    {orderMode === 'p1_p2' ? renderPage4() : renderPage3()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: ProshnoLab & eProshnobank Style Live Customization Sidebar */}
+        {showCustomizationSidebar && (
+          <div className="w-full xl:w-80 shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-4 print:hidden sticky top-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-emerald-600" />
+                <h3 className="font-bold text-sm text-slate-900">প্রশ্নপত্র কাস্টমাইজেশন স্টুডিও</h3>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                ProshnoLab + eProshno
+              </span>
+            </div>
+
+            {/* Set Selector & Shuffle */}
+            <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700">সেট কোড নির্বাচন:</span>
+                <div className="flex items-center gap-1">
+                  {(['ক', 'খ', 'গ', 'ঘ'] as const).map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setActiveSet(s)}
+                      className={`w-6 h-6 rounded font-bold text-xs cursor-pointer transition ${
+                        activeSet === s
+                          ? 'bg-emerald-600 text-white shadow-2xs'
+                          : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {onShuffleQuestions && (
+                <button
+                  type="button"
+                  onClick={onShuffleQuestions}
+                  className="w-full py-1.5 px-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition"
+                >
+                  <Shuffle className="w-3.5 h-3.5" />
+                  <span>প্রশ্ন শাফল করুন (Shuffle Set)</span>
+                </button>
+              )}
+            </div>
+
+            {/* Toggle Switches (প্রশ্নে সংযুক্তি) */}
+            <div className="space-y-2">
+              <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>প্রশ্নে সংযুক্তি ও অপশন টগল:</span>
+              </div>
+
+              <div className="space-y-1.5 text-xs">
+                {[
+                  { label: 'এডিটিং মোড (Live Edit)', state: isInlineEditing, setter: setIsInlineEditing },
+                  { label: 'উত্তরপত্র (সঠিক বৃত্ত ভরাট ●)', state: showTickAnswer, setter: setShowTickAnswer },
+                  { label: 'সমাধান / ব্যাখ্যা সংযুক্ত', state: showExplanation, setter: setShowExplanation },
+                  { label: 'প্রশ্নে মিনি OMR সংযুক্ত', state: showMiniOmr, setter: setShowMiniOmr },
+                  { label: 'চিরকুট উত্তরপত্র সংযুক্ত', state: showTearOffSlip, setter: setShowTearOffSlip },
+                  { label: 'শেষে পূর্ণাঙ্গ উত্তরমালা ছক', state: showAnswerKey, setter: setShowAnswerKey },
+                  { label: 'বোর্ড ও সাল ট্যাগ [ঢা. বো. ২৪]', state: showBoardTag, setter: setShowBoardTag },
+                  { label: 'বিষয় কোড বক্স [১][৭][৪]', state: showSubjectCodeBox, setter: setShowSubjectCodeBox },
+                  { label: 'সেট কোড প্রদর্শন [ক]', state: showSetCode, setter: setShowSetCode },
+                  { label: 'প্রাপ্ত নম্বর ঘর (উপরে বামে)', state: showMarksBox, setter: setShowMarksBox },
+                  { label: 'শিক্ষার্থীর নাম ও রোল ঘর', state: showStudentInfoBar, setter: setShowStudentInfoBar },
+                  { label: 'লগো জলছাপ (Watermark)', state: showWatermark, setter: handleToggleWatermark },
+                ].map((item, idx) => (
+                  <label
+                    key={idx}
+                    className="flex items-center justify-between py-1.5 px-2.5 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 cursor-pointer transition"
+                  >
+                    <span className="font-medium text-slate-700">{item.label}</span>
+                    <input
+                      type="checkbox"
+                      checked={item.state}
+                      onChange={(e) => item.setter(e.target.checked)}
+                      className="w-4 h-4 rounded accent-emerald-600 cursor-pointer"
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Option Style & Numbering Style */}
+            <div className="space-y-2.5 pt-2 border-t border-slate-100 text-xs">
+              <div>
+                <span className="font-bold text-slate-700 block mb-1">অপশন স্টাইল (MCQ Circle):</span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { id: 'circle', label: 'বৃত্ত ⓐ ⓑ' },
+                    { id: 'paren', label: 'বন্ধনী (ক)' },
+                    { id: 'dot', label: 'ডট ক. খ.' },
+                  ].map(st => (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => setOptionStyle(st.id as any)}
+                      className={`py-1.5 px-2 rounded-lg font-bold border text-[11px] cursor-pointer transition ${
+                        optionStyle === st.id
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="font-bold text-slate-700 block mb-1">প্রশ্নের নম্বর স্টাইল:</span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { id: 'dot', label: '১. ২. ৩.' },
+                    { id: ' zero_dot', label: '০১. ০২.' },
+                    { id: 'paren', label: '(১) (২)' },
+                  ].map(ns => (
+                    <button
+                      key={ns.id}
+                      type="button"
+                      onClick={() => setNumberStyle(ns.id as any)}
+                      className={`py-1.5 px-2 rounded-lg font-bold border text-[11px] cursor-pointer transition ${
+                        numberStyle === ns.id
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {ns.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="font-bold text-slate-700 block mb-1">পেইজ বর্ডার স্টাইল:</span>
+                <select
+                  value={borderStyle}
+                  onChange={(e) => setBorderStyle(e.target.value as any)}
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 font-bold text-slate-800 outline-none"
+                >
+                  <option value="solid">সিঙ্গেল বর্ডার (বোর্ড স্ট্যান্ডার্ড)</option>
+                  <option value="double">ক্লাসিক ডাবল বর্ডার</option>
+                  <option value="thin">সূক্ষ্ম বর্ডার (Thin)</option>
+                  <option value="none">বর্ডার ছাড়া (No Border)</option>
+                </select>
+              </div>
+
+              {/* Header Colored Background & Text Color */}
+              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-700 flex items-center gap-1">
+                    <Palette className="w-3.5 h-3.5 text-teal-600" />
+                    <span>রঙিন হেডার ব্যাকগ্রাউন্ড</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={headerColoredBg}
+                    onChange={(e) => setHeaderColoredBg(e.target.checked)}
+                    className="w-4 h-4 accent-teal-600 cursor-pointer"
+                  />
+                </div>
+                {headerColoredBg && (
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <span className="text-[11px] text-slate-500">ব্যাকগ্রাউন্ড কালার:</span>
+                    <input
+                      type="color"
+                      value={headerBgColor}
+                      onChange={(e) => setHeaderBgColor(e.target.value)}
+                      className="w-8 h-6 rounded cursor-pointer border border-slate-300"
+                    />
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/70">
+                  <span className="text-[11px] text-slate-600 font-semibold">প্রশ্নের টেক্সট কালার:</span>
+                  <input
+                    type="color"
+                    value={paperTextColor}
+                    onChange={(e) => setPaperTextColor(e.target.value)}
+                    className="w-8 h-6 rounded cursor-pointer border border-slate-300"
+                  />
+                </div>
+              </div>
+
+              {/* Watermark Quick Configure Button */}
+              <button
+                type="button"
+                onClick={() => setShowWatermarkModal(true)}
+                className="w-full py-2 px-3 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>লগো জলছাপ আপলোড ও অপাসিটি</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Smart Board Interactive Classroom Modal */}
+      {showSmartBoard && (
+        <div className="fixed inset-0 z-50 bg-slate-950 text-white flex flex-col justify-between p-6 print:hidden">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-black">
+                <Monitor className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="font-bold text-lg text-white">{config.academyName} — Smart Board</h2>
+                <p className="text-xs text-slate-400">
+                  {config.subject} ({config.className}) • প্রশ্ন {toBengaliNumber(smartBoardIndex + 1)} / {toBengaliNumber(Math.max(1, allQuestionsForBoard.length))}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowSmartBoard(false)}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs cursor-pointer"
+            >
+              Smart Board বন্ধ করুন ✕
+            </button>
+          </div>
+
+          <div className="flex-1 flex items-center justify-center max-w-4xl w-full mx-auto py-8">
+            {allQuestionsForBoard.length === 0 ? (
+              <div className="text-center text-slate-400">কোনো প্রশ্ন যুক্ত করা হয়নি।</div>
+            ) : (
+              (() => {
+                const q = allQuestionsForBoard[smartBoardIndex];
+                if (!q) return null;
+                return (
+                  <div className="w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 space-y-6 shadow-2xl">
+                    <div className="flex items-center justify-between">
+                      <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-bold">
+                        প্রশ্ন নং {toBengaliNumber(smartBoardIndex + 1)}
+                      </span>
+                      {q.boardInfo && (
+                        <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold">
+                          🏛️ {q.boardInfo}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-2xl md:text-3xl font-bold leading-relaxed text-white">
+                      {q.type === 'cq' ? q.stimulus : q.question}
+                    </div>
+
+                    {q.type === 'mcq' && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                        {q.options.map((opt, oIdx) => {
+                          const isCorrect = q.correctOption === oIdx;
+                          return (
+                            <div
+                              key={oIdx}
+                              onClick={() => setSmartBoardReveal(true)}
+                              className={`p-4 rounded-2xl border-2 text-lg font-semibold cursor-pointer transition flex items-center gap-3 ${
+                                smartBoardReveal && isCorrect
+                                  ? 'bg-emerald-600/30 border-emerald-400 text-emerald-200'
+                                  : 'bg-slate-800/80 border-slate-700 text-slate-200 hover:border-indigo-400'
+                              }`}
+                            >
+                              <span className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-sm">
+                                {['ক', 'খ', 'গ', 'ঘ'][oIdx]}
+                              </span>
+                              <span>{opt}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {q.type === 'cq' && (
+                      <div className="space-y-3 pt-2 text-lg text-slate-200">
+                        {q.subQuestions.map(sq => (
+                          <div key={sq.label} className="p-3 rounded-xl bg-slate-800/60 border border-slate-700 flex justify-between">
+                            <span><strong>({sq.label})</strong> {sq.question}</span>
+                            <span className="text-indigo-400 font-mono">[{toBengaliNumber(sq.marks)}]</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()
+            )}
+          </div>
+
+          <div className="flex items-center justify-between border-t border-slate-800 pt-4">
+            <button
+              disabled={smartBoardIndex <= 0}
+              onClick={() => {
+                setSmartBoardIndex(prev => Math.max(0, prev - 1));
+                setSmartBoardReveal(false);
+              }}
+              className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 font-bold text-sm cursor-pointer"
+            >
+              ← পূর্ববর্তী প্রশ্ন
+            </button>
+
+            <button
+              onClick={() => setSmartBoardReveal(!smartBoardReveal)}
+              className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm cursor-pointer"
+            >
+              {smartBoardReveal ? 'উত্তর লুকান' : 'সঠিক উত্তর দেখুন ✓'}
+            </button>
+
+            <button
+              disabled={smartBoardIndex >= allQuestionsForBoard.length - 1}
+              onClick={() => {
+                setSmartBoardIndex(prev => Math.min(allQuestionsForBoard.length - 1, prev + 1));
+                setSmartBoardReveal(false);
+              }}
+              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 font-bold text-sm cursor-pointer"
+            >
+              পরবর্তী প্রশ্ন →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Picture Watermark (লগো জলছাপ) Settings Modal */}
       {showWatermarkModal && (
@@ -1270,7 +1801,6 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
             </div>
 
             <div className="space-y-4">
-              {/* Enable / Disable Watermark */}
               <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
                 <span className="text-xs font-bold text-slate-800">জলছাপ প্রদর্শন করুন (Show Watermark)</span>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -1284,7 +1814,6 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
                 </label>
               </div>
 
-              {/* Watermark Preview & Upload */}
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-center gap-4">
                 <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-300 bg-white flex items-center justify-center overflow-hidden shrink-0 relative group">
                   {watermarkImage ? (
@@ -1300,11 +1829,9 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
                 </div>
 
                 <div className="space-y-2 flex-1 text-center sm:text-left">
-                  <div className="text-xs font-bold text-slate-900">
-                    লগো ইমেজ (Picture / Logo)
-                  </div>
+                  <div className="text-xs font-bold text-slate-900">লগো ইমেজ (Picture / Logo)</div>
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    আপনার কম্পিউটার বা ফোন থেকে প্রতিষ্ঠানের যে কোনো লগো (PNG, JPG, SVG) আপলোড করুন। এটি স্বয়ংক্রিয়ভাবে ৪-পৃষ্ঠার প্রতিটি পাতার মাঝখানে হালকা জলছাপ হিসেবে বসবে।
+                    আপনার কম্পিউটার বা ফোন থেকে প্রতিষ্ঠানের যে কোনো লগো আপলোড করুন। এটি ৪-পৃষ্ঠার প্রতিটি পাতার মাঝখানে হালকা জলছাপ হিসেবে বসবে।
                   </p>
 
                   <div className="flex items-center gap-2 pt-1 justify-center sm:justify-start">
@@ -1328,7 +1855,6 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
                       type="button"
                       onClick={handleResetToDefaultLogo}
                       className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1 cursor-pointer transition"
-                      title="ডিফল্ট সায়েন্স স্টুডিও সিল লগোতে ফিরিয়ে নিন"
                     >
                       <RotateCcw className="w-3 h-3" />
                       <span>সায়েন্স স্টুডিও সিল</span>
@@ -1337,7 +1863,6 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
                 </div>
               </div>
 
-              {/* Opacity selector & Slider */}
               <div className="space-y-2 p-3 bg-slate-50 rounded-2xl border border-slate-200">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-bold text-slate-700">জলছাপের স্বচ্ছতা (Opacity):</span>
@@ -1358,38 +1883,13 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
                   }}
                   className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
                 />
-                <div className="grid grid-cols-4 gap-2 pt-1">
-                  {[
-                    { label: 'খুব হালকা', val: 0.04 },
-                    { label: 'আদর্শ', val: 0.07 },
-                    { label: 'স্পষ্ট', val: 0.11 },
-                    { label: 'গাঢ়', val: 0.16 }
-                  ].map(opt => (
-                    <button
-                      key={opt.val}
-                      type="button"
-                      onClick={() => {
-                        setWatermarkOpacity(opt.val);
-                        if (onWatermarkOpacityChange) onWatermarkOpacityChange(opt.val);
-                      }}
-                      className={`py-1.5 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
-                        Math.abs(watermarkOpacity - opt.val) < 0.005
-                          ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      {opt.label} ({Math.round(opt.val * 100)}%)
-                    </button>
-                  ))}
-                </div>
               </div>
 
-              {/* Size selector & Slider */}
               <div className="space-y-2 p-3 bg-slate-50 rounded-2xl border border-slate-200">
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-bold text-slate-700">লগোর আকার (Watermark Size):</span>
                   <span className="font-mono text-teal-700 font-black bg-teal-100 px-2 py-0.5 rounded-md text-xs">
-                    {watermarkSize}px ({Math.round((watermarkSize / 160) * 100)}%)
+                    {watermarkSize}px
                   </span>
                 </div>
                 <input
@@ -1405,30 +1905,6 @@ export const LandscapeBookletPreview: React.FC<LandscapeBookletPreviewProps> = (
                   }}
                   className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
                 />
-                <div className="grid grid-cols-4 gap-2 pt-1">
-                  {[
-                    { label: 'ছোট (৭৫%)', val: 120 },
-                    { label: 'আদর্শ (১০০%)', val: 160 },
-                    { label: 'বড় (১৩৫%)', val: 220 },
-                    { label: 'বৃহৎ (১৭৫%)', val: 280 }
-                  ].map(opt => (
-                    <button
-                      key={opt.val}
-                      type="button"
-                      onClick={() => {
-                        setWatermarkSize(opt.val);
-                        if (onWatermarkSizeChange) onWatermarkSizeChange(opt.val);
-                      }}
-                      className={`py-1.5 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
-                        watermarkSize === opt.val
-                          ? 'bg-teal-600 text-white border-teal-600 shadow-xs'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
 
